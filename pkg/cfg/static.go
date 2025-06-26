@@ -18,16 +18,19 @@ type Server struct {
 }
 
 func AppCfgFromEnv(log pkg.Log) (*App, error) {
+	// see `App.Pg`
 	pgUrl := os.Getenv("PG_DATABASE_URL")
 	if pgUrl == "" {
 		log.Info("PG_DATABASE_URL: no pg connection string provided, using default")
-		pgUrl = "user=user password=password host=localhost port=5432 dbname=harmony"
+		pgUrl = "user=user password=password host=db port=5432 dbname=harmony"
 	}
 
 	pgCfg, err := types.NewPgCfg(pgUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing app config: %w", err)
 	}
+
+	// ... more app cfg here
 
 	return &App{Pg: pgCfg}, nil
 }

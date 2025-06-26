@@ -30,9 +30,20 @@ services:
     depends_on:
       - backend
 
-    # todo add PostgreSQL db
+  db:
+    image: postgres:latest
+    container_name: harmony-db-dev
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: harmony
+    volumes:
+      - db-data:/var/lib/postgresql/data
 
 volumes:
   go-pkg:
   go-cache:
   dot-cache:
+  db-data:
