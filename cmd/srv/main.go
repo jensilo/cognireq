@@ -27,8 +27,8 @@ func main() {
 	defer dbConn.Close()
 	queries := db.New(dbConn)
 
-	usr, err := queries.UserByEmail(ctx, "46793176+jensilo@users.noreply.github.com")
-	fmt.Printf("%v - %v", usr, err)
+	usr, err := queries.UserByEmail(ctx, "46793176+jensilo@users.noreply.github.com") // remove
+	fmt.Printf("\nDummy user request: %+v (%v)\n\n", usr, err)
 
 	fmt.Println("hello, world!")
 }
