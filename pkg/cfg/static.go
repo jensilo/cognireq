@@ -1,36 +1,35 @@
 package cfg
 
-import (
-	"fmt"
-	"github.com/jensilo/harmony/pkg"
-	"github.com/jensilo/harmony/pkg/types"
-	"os"
+import "os"
+
+var (
+	KeyDatabaseUrl = "PG_DATABASE_URL"
+	WebHost        = "WEB_HOST"
+	WebPort        = "WEB_PORT"
 )
 
-type App struct {
-	// Pg set by "PG_DATABASE_URL" env var. Must be a valid PostgreSQL connection string.
-	Pg *types.PgCfg
+type WebConfig struct {
+	Host string
+	Port string
 }
 
-type Server struct {
-	BasePath string
-	Port     int
+func DefaultGetEnv(key string) string {
+	if s, ok := os.LookupEnv(key); ok {
+		return s
+	}
+
+	switch key {
+	case KeyDatabaseUrl:
+		return "user=user password=password host=db port=5432 dbname=harmony"
+	case WebHost:
+		return ""
+	case WebPort:
+		return "8080"
+	default:
+		return ""
+	}
 }
 
-func AppCfgFromEnv(log pkg.Log) (*App, error) {
-	// see `App.Pg`
-	pgUrl := os.Getenv("PG_DATABASE_URL")
-	if pgUrl == "" {
-		log.Info("PG_DATABASE_URL: no pg connection string provided, using default")
-		pgUrl = "user=user password=password host=db port=5432 dbname=harmony"
-	}
-
-	pgCfg, err := types.NewPgCfg(pgUrl)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing app config: %w", err)
-	}
-
-	// ... more app cfg here
-
-	return &App{Pg: pgCfg}, nil
+func WebConfigFromEnv(getenv func(string) string) *WebConfig {
+	return &WebConfig{Host: getenv(WebHost), Port: getenv(WebPort)}
 }
