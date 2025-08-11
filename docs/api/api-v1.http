@@ -1,2 +1,35 @@
+### Ping - Pong
 GET {{host}}/api/v1/ping
 Accept: application/json
+
+### User Register
+POST {{host}}/api/v1/user/register
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "foo@bar.com",
+    "first_name": "Foo",
+    "last_name": "Bar",
+    "plain_password": "test"
+}
+
+### User Login - Success
+POST {{host}}/api/v1/user/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "foo@bar.com",
+  "password": "test"
+}
+
+### User Login - Failure
+POST {{host}}/api/v1/user/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "foo@bar.com",
+  "password": "abc"
+}
