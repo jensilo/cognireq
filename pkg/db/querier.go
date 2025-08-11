@@ -6,9 +6,14 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error)
+	SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
 }
 

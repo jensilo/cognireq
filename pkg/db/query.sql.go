@@ -7,7 +7,67 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createSession = `-- name: CreateSession :one
+INSERT INTO sessions (user_id, expiry_at)
+VALUES ($1, $2) RETURNING id
+`
+
+type CreateSessionParams struct {
+	UserID   pgtype.UUID      `json:"user_id"`
+	ExpiryAt pgtype.Timestamp `json:"expiry_at"`
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.ExpiryAt)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, first_name, last_name, password)
+VALUES ($1, $2, $3, $4) RETURNING id
+`
+
+type CreateUserParams struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Password  string `json:"password"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.Password,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const sessionByUserID = `-- name: SessionByUserID :one
+SELECT id, user_id, expiry_at, created_at FROM sessions
+WHERE user_id = $1 LIMIT 1
+`
+
+func (q *Queries) SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error) {
+	row := q.db.QueryRow(ctx, sessionByUserID, userID)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ExpiryAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const userByEmail = `-- name: UserByEmail :one
 SELECT id, email, first_name, last_name, password, created_at, updated_at FROM users

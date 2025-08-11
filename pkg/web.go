@@ -1,14 +1,16 @@
 package pkg
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
 
-func NewServer(logger *slog.Logger) (http.Handler, error) {
+func NewServer(logger *slog.Logger, services *Services) (http.Handler, error) {
 	mux := http.NewServeMux()
-	err := addRoutes(mux, logger)
+	err := addRoutes(mux, logger, services)
 	if err != nil {
 		return nil, err
 	}
@@ -16,19 +18,27 @@ func NewServer(logger *slog.Logger) (http.Handler, error) {
 	return mux, nil
 }
 
-func addRoutes(mux *http.ServeMux, logger *slog.Logger) error {
-	mux.Handle("GET /api/v1/ping", pingHandler())
-
+func EncodeJSON[T any](w http.ResponseWriter, status int, v T) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
 	return nil
 }
 
-func pingHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		err := json.NewEncoder(w).Encode("pong")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
+func DecodeJSON[T any](r *http.Request) (T, error) {
+	var v T
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		return v, fmt.Errorf("decode json: %w", err)
+	}
+	return v, nil
+}
+
+func DecodeDataToJSON[T any](d []byte) (T, error) {
+	var v T
+	if err := json.NewDecoder(bytes.NewReader(d)).Decode(&v); err != nil {
+		return v, fmt.Errorf("decode json: %w", err)
+	}
+	return v, nil
 }
