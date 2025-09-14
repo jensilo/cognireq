@@ -2,6 +2,7 @@ services:
   backend:
     build:
       context: .
+      dockerfile: backend.Dockerfile
     container_name: harmony-backend-dev
     user: "1000:1000"
     volumes:
@@ -31,7 +32,9 @@ services:
       - backend
 
   db:
-    image: postgres:latest
+    build:
+      context: .
+      dockerfile: db.Dockerfile
     container_name: harmony-db-dev
     ports:
       - "5432:5432"
@@ -41,6 +44,18 @@ services:
       POSTGRES_DB: harmony
     volumes:
       - db-data:/var/lib/postgresql/data
+
+  testdb:
+    build:
+      context: .
+      dockerfile: db.Dockerfile
+    container_name: harmony-db-dev-test
+    ports:
+      - "6543:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: harmony
 
 volumes:
   go-pkg:
