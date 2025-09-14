@@ -28,19 +28,19 @@ func pingHandler() http.Handler {
 	})
 }
 
-func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
-	type payload struct {
-		Email         string `json:"email"`
-		FirstName     string `json:"first_name"`
-		LastName      string `json:"last_name"`
-		PlainPassword string `json:"plain_password"`
-	}
-	type response struct {
-		Id string `json:"id"`
-	}
+type registerPayload struct {
+	Email         string `json:"email"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	PlainPassword string `json:"plain_password"`
+}
+type registerResponse struct {
+	ID string `json:"id"`
+}
 
+func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := DecodeJSON[payload](r)
+		p, err := DecodeJSON[registerPayload](r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -59,7 +59,7 @@ func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
 			return
 		}
 
-		err = EncodeJSON(w, http.StatusCreated, response{Id: id.String()})
+		err = EncodeJSON(w, http.StatusCreated, registerResponse{ID: id.String()})
 		if err != nil {
 			logger.Error("unexpected json encoding error", "err", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -68,18 +68,18 @@ func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
 	})
 }
 
-func loginHandler(logger *slog.Logger, service *UserService) http.Handler {
-	type payload struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	type response struct {
-		UserID    string `json:"user_id"`
-		SessionID string `json:"session_id"`
-	}
+type loginPayload struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+type loginResponse struct {
+	UserID    string `json:"user_id"`
+	SessionID string `json:"session_id"`
+}
 
+func loginHandler(logger *slog.Logger, service *UserService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := DecodeJSON[payload](r)
+		p, err := DecodeJSON[loginPayload](r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -95,7 +95,7 @@ func loginHandler(logger *slog.Logger, service *UserService) http.Handler {
 			return
 		}
 
-		err = EncodeJSON(w, http.StatusOK, response{UserID: usrID, SessionID: sessionID})
+		err = EncodeJSON(w, http.StatusOK, loginResponse{UserID: usrID, SessionID: sessionID})
 		if err != nil {
 			logger.Error("unexpected json encoding error", "err", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
