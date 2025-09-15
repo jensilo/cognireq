@@ -42,7 +42,7 @@ func TestRegister(t *testing.T) {
 		Email:         "foo@bar.de",
 		FirstName:     "Foo",
 		LastName:      "Bar",
-		PlainPassword: "test",
+		PlainPassword: "test1234",
 	})
 	require.NoError(t, err, "could not marshal json payload")
 

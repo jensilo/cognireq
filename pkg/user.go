@@ -24,10 +24,10 @@ func NewUserService(queries *db.Queries) *UserService {
 	return &UserService{queries: queries}
 }
 
-func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (pgtype.UUID, error) {
+func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (string, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(u.PlainPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return pgtype.UUID{}, errors.New("could not hash password")
+		return "", errors.New("could not hash password")
 	}
 
 	id, err := us.queries.CreateUser(ctx, db.CreateUserParams{
@@ -38,10 +38,10 @@ func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (pgty
 	})
 	if err != nil {
 		// todo handle more explicitly
-		return pgtype.UUID{}, err
+		return "", err
 	}
 
-	return id, nil
+	return id.String(), nil
 }
 
 func (us *UserService) Login(ctx context.Context, email, password string) (userID, sessionID string, err error) {
