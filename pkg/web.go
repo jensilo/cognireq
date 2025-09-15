@@ -8,6 +8,41 @@ import (
 	"net/http"
 )
 
+const (
+	CodeInternalError   = "INTERNAL_ERROR"
+	CodeValidationError = "VALIDATION_ERROR"
+)
+
+type FieldError struct {
+	Field string `json:"field"`
+	Code  string `json:"code"`
+}
+
+type WebError struct {
+	Code   string       `json:"code"`
+	Fields []FieldError `json:"fields,omitempty"`
+	Status int          `json:"-"`
+}
+
+func (e *WebError) Error() string {
+	return fmt.Sprintf("%s: %+v", e.Code, e.Fields)
+}
+
+func NewInternalError() *WebError {
+	return &WebError{
+		Code:   CodeInternalError,
+		Status: http.StatusInternalServerError,
+	}
+}
+
+func NewValidationError(fields []FieldError) *WebError {
+	return &WebError{
+		Code:   CodeValidationError,
+		Status: http.StatusBadRequest,
+		Fields: fields,
+	}
+}
+
 func NewServer(logger *slog.Logger, services *Services) (http.Handler, error) {
 	mux := http.NewServeMux()
 	err := addRoutes(mux, logger, services)
@@ -41,4 +76,10 @@ func DecodeJSONFromBytes[T any](d []byte) (T, error) {
 		return v, fmt.Errorf("decode json: %w", err)
 	}
 	return v, nil
+}
+
+func WriteJSONError(w http.ResponseWriter, err *WebError) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(err.Status)
+	_ = json.NewEncoder(w).Encode(err)
 }

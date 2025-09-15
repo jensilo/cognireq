@@ -11,7 +11,7 @@ Accept: application/json
     "email": "foo@bar.com",
     "first_name": "Foo",
     "last_name": "Bar",
-    "plain_password": "test"
+    "plain_password": "test1234"
 }
 
 ### User Login - Success
@@ -21,7 +21,7 @@ Accept: application/json
 
 {
   "email": "foo@bar.com",
-  "password": "test"
+  "password": "test1234"
 }
 
 ### User Login - Failure
