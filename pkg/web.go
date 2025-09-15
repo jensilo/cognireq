@@ -35,7 +35,7 @@ func DecodeJSON[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-func DecodeDataToJSON[T any](d []byte) (T, error) {
+func DecodeJSONFromBytes[T any](d []byte) (T, error) {
 	var v T
 	if err := json.NewDecoder(bytes.NewReader(d)).Decode(&v); err != nil {
 		return v, fmt.Errorf("decode json: %w", err)
