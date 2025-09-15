@@ -27,11 +27,11 @@ func InitDB(t *testing.T) *pgxpool.Pool {
 
 	dbConn, err := db.NewConn(t.Context(), dbConnStr)
 	if err != nil {
-		t.Fatalf("failed to connect to db: %v", err)
+		t.Fatalf("failed to connect to db (%s): %v", DBConnStr, err)
 	}
 
 	if err := dbConn.Ping(t.Context()); err != nil {
-		t.Fatalf("can not ping db: %v", err)
+		t.Fatalf("IMPORTANT: is dev docker container `testdb` started? can not ping db: %v", err)
 	}
 
 	if _, err := dbConn.Exec(t.Context(), fmt.Sprintf("CREATE SCHEMA %s", schemaID)); err != nil {
@@ -55,11 +55,11 @@ func InitDB(t *testing.T) *pgxpool.Pool {
 	return dbConn
 }
 
-func InitLogger(t *testing.T) *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stdout, nil))
-}
-
 func sanitizeSchemaName(schema string) string {
 	schema = strings.ReplaceAll(schema, "-", "")
 	return pgx.Identifier{schema}.Sanitize()
+}
+
+func InitLogger(t *testing.T) *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, nil))
 }
