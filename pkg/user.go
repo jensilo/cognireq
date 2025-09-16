@@ -41,7 +41,6 @@ func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (stri
 		return "", ErrEmailExists
 	}
 	if err != nil {
-		// todo handle more explicitly
 		return "", err
 	}
 
