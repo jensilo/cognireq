@@ -69,9 +69,19 @@ func (q *Queries) SessionByUserID(ctx context.Context, userID pgtype.UUID) (Sess
 	return i, err
 }
 
+const updateLastLogin = `-- name: UpdateLastLogin :exec
+UPDATE users SET last_login = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) UpdateLastLogin(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, updateLastLogin, id)
+	return err
+}
+
 const userByEmail = `-- name: UserByEmail :one
-SELECT id, email, first_name, last_name, password, created_at, updated_at FROM users
-WHERE email = $1 LIMIT 1
+SELECT id, email, first_name, last_name, password, active, last_login, created_at, updated_at FROM users
+WHERE email = $1 AND active = true LIMIT 1
 `
 
 func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
@@ -83,6 +93,8 @@ func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
 		&i.FirstName,
 		&i.LastName,
 		&i.Password,
+		&i.Active,
+		&i.LastLogin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
