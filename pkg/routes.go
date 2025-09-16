@@ -12,9 +12,9 @@ import (
 
 const (
 	CodeEmailInvalid       = "EMAIL_INVALID"
-	CodeFirstNameMissing   = "FIRST_NAME_MISSING"
-	CodeLastNameMissing    = "LAST_NAME_MISSING"
+	CodeValueMissing       = "FIELD_MISSING"
 	CodePasswordTooShort   = "PASSWORD_TOO_SHORT"
+	CodeEmailExists        = "EMAIL_EXISTS"
 	CodeInvalidCredentials = "INVALID_CREDENTIALS"
 )
 
@@ -51,10 +51,10 @@ func (p *registerPayload) validate() *WebError {
 		fieldErrors = append(fieldErrors, FieldError{Code: CodeEmailInvalid, Field: "email"})
 	}
 	if p.FirstName == "" {
-		fieldErrors = append(fieldErrors, FieldError{Code: CodeFirstNameMissing, Field: "first_name"})
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "first_name"})
 	}
 	if p.LastName == "" {
-		fieldErrors = append(fieldErrors, FieldError{Code: CodeLastNameMissing, Field: "last_name"})
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "last_name"})
 	}
 	if len(p.PlainPassword) < 8 {
 		fieldErrors = append(fieldErrors, FieldError{Code: CodePasswordTooShort, Field: "plain_password"})
@@ -71,12 +71,11 @@ type registerResponse struct {
 	ID string `json:"id"`
 }
 
-// todo user already exists different error
 func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := DecodeJSON[registerPayload](r)
 		if err != nil {
-			WriteJSONError(w, NewInternalError())
+			WriteJSONError(w, NewMalformedRequestError())
 			return
 		}
 		if err := p.validate(); err != nil {
@@ -91,6 +90,10 @@ func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
 			PlainPassword: p.PlainPassword,
 		}
 		id, err := service.Register(r.Context(), toCreate)
+		if errors.Is(err, ErrEmailExists) {
+			WriteJSONError(w, &WebError{Code: CodeEmailExists, Status: http.StatusConflict})
+			return
+		}
 		if err != nil {
 			logger.Error("could not register user", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -111,22 +114,42 @@ type loginPayload struct {
 	Password string `json:"password"`
 }
 
+func (p *loginPayload) validate() *WebError {
+	var fieldErrors []FieldError
+
+	if p.Email == "" {
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "email"})
+	}
+	if p.Password == "" {
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "password"})
+	}
+
+	if len(fieldErrors) > 0 {
+		return NewValidationError(fieldErrors)
+	}
+
+	return nil
+}
+
 type loginResponse struct {
 	UserID    string `json:"user_id"`
 	SessionID string `json:"session_id"`
 }
 
-// todo rework login handler
 func loginHandler(logger *slog.Logger, service *UserService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := DecodeJSON[loginPayload](r)
 		if err != nil {
-			WriteJSONError(w, NewInternalError())
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+		if err := p.validate(); err != nil {
+			WriteJSONError(w, err)
 			return
 		}
 
 		usrID, sessionID, err := service.Login(r.Context(), p.Email, p.Password)
-		if err != nil && errors.Is(err, ErrInvalidLogin) {
+		if errors.Is(err, ErrInvalidLogin) {
 			WriteJSONError(w, &WebError{Code: CodeInvalidCredentials, Status: http.StatusBadRequest})
 			return
 		}
