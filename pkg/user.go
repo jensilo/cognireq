@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	ErrEmailExists  = errors.New("email already exists")
 	ErrInvalidLogin = errors.New("invalid login credentials")
 )
 
@@ -36,6 +37,9 @@ func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (stri
 		LastName:  u.LastName,
 		Password:  string(passwordHash),
 	})
+	if db.IsUniqueConstraintViolation(err) {
+		return "", ErrEmailExists
+	}
 	if err != nil {
 		// todo handle more explicitly
 		return "", err

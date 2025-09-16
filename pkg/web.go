@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	CodeInternalError   = "INTERNAL_ERROR"
-	CodeValidationError = "VALIDATION_ERROR"
+	CodeInternalError         = "INTERNAL_ERROR"
+	CodeMalformedRequestError = "MALFORMED_REQUEST_ERROR"
+	CodeValidationError       = "VALIDATION_ERROR"
 )
 
 type FieldError struct {
@@ -32,6 +33,13 @@ func NewInternalError() *WebError {
 	return &WebError{
 		Code:   CodeInternalError,
 		Status: http.StatusInternalServerError,
+	}
+}
+
+func NewMalformedRequestError() *WebError {
+	return &WebError{
+		Code:   CodeMalformedRequestError,
+		Status: http.StatusBadRequest,
 	}
 }
 
