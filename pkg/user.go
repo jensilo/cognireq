@@ -47,12 +47,11 @@ func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (stri
 	return id.String(), nil
 }
 
-// todo fix timing attack!
 func (us *UserService) Login(ctx context.Context, email, password string) (userID, sessionID string, err error) {
 	usr, err := us.queries.UserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		_ = bcrypt.CompareHashAndPassword(
-			[]byte("9a5fe17d0d973036af5bf1e1bd1399bed442bd8dac9ed323a3af04fb347c9ef9"),
+			[]byte("$2a$10$6zBr8NNH1S.2Nnyb4UdG/Op12FmR5VPIQHTSs.gAqD.AXhtOL9IIe"),
 			[]byte("6de4f3ca5701c098ff2cf2e45003d0b858f7991064d5c193eb6bfb159e8bcb1e"),
 		)
 		return "", "", ErrInvalidLogin
