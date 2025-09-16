@@ -47,30 +47,40 @@ func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (stri
 	return id.String(), nil
 }
 
+// todo fix timing attack!
 func (us *UserService) Login(ctx context.Context, email, password string) (userID, sessionID string, err error) {
 	usr, err := us.queries.UserByEmail(ctx, email)
-	if err != nil && errors.Is(err, pgx.ErrNoRows) {
-		err = ErrInvalidLogin
-		return
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = bcrypt.CompareHashAndPassword(
+			[]byte("9a5fe17d0d973036af5bf1e1bd1399bed442bd8dac9ed323a3af04fb347c9ef9"),
+			[]byte("6de4f3ca5701c098ff2cf2e45003d0b858f7991064d5c193eb6bfb159e8bcb1e"),
+		)
+		return "", "", ErrInvalidLogin
 	}
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password))
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return "", "", ErrInvalidLogin
+	}
 	if err != nil {
-		err = ErrInvalidLogin
-		return
+		return "", "", err
 	}
 
+	sessID, err := us.createLoginSession(ctx, usr.ID)
+	if err != nil {
+		return "", "", err
+	}
+
+	return usr.ID.String(), sessID.String(), nil
+}
+
+func (us *UserService) createLoginSession(ctx context.Context, usrID pgtype.UUID) (pgtype.UUID, error) {
 	expiry := time.Now().Add(time.Hour)
-	id, err := us.queries.CreateSession(ctx, db.CreateSessionParams{UserID: usr.ID, ExpiryAt: pgtype.Timestamp{Time: expiry, Valid: true}})
-	if err != nil {
-		return
-	}
-
-	userID = usr.ID.String()
-	sessionID = id.String()
-
-	return
+	return us.queries.CreateSession(
+		ctx,
+		db.CreateSessionParams{UserID: usrID, ExpiryAt: pgtype.Timestamp{Time: expiry, Valid: true}},
+	)
 }
