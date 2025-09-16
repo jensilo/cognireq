@@ -5,6 +5,8 @@ CREATE TABLE users
     first_name TEXT NOT NULL,
     last_name  TEXT NOT NULL,
     password   TEXT NOT NULL,
+    active     BOOLEAN DEFAULT FALSE,
+    last_login TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

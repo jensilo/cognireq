@@ -21,6 +21,8 @@ type User struct {
 	FirstName string           `json:"first_name"`
 	LastName  string           `json:"last_name"`
 	Password  string           `json:"password"`
+	Active    pgtype.Bool      `json:"active"`
+	LastLogin pgtype.Timestamp `json:"last_login"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`
 }

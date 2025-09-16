@@ -73,6 +73,11 @@ func (us *UserService) Login(ctx context.Context, email, password string) (userI
 		return "", "", err
 	}
 
+	err = us.queries.UpdateLastLogin(ctx, usr.ID)
+	if err != nil {
+		return "", "", err
+	}
+
 	return usr.ID.String(), sessID.String(), nil
 }
 
