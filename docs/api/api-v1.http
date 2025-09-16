@@ -24,7 +24,7 @@ Accept: application/json
   "password": "test1234"
 }
 
-### User Login - Failure
+### User Login - Failure - Wrong Password
 POST {{host}}/api/v1/user/login
 Content-Type: application/json
 Accept: application/json
@@ -32,4 +32,14 @@ Accept: application/json
 {
   "email": "foo@bar.com",
   "password": "abc"
+}
+
+### User Login - Failure - Wrong Email
+POST {{host}}/api/v1/user/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "boo@far.com",
+  "password": "test1234"
 }
