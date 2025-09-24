@@ -48,7 +48,7 @@ func TestRegister(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/user/register", bytes.NewReader(payload))
 	w := httptest.NewRecorder()
-	registerHandler(logger, NewUserService(queries)).ServeHTTP(w, req)
+	HandleJSON(registerController(logger, NewUserService(queries))).ServeHTTP(w, req)
 	res := w.Result()
 	defer res.Body.Close()
 
