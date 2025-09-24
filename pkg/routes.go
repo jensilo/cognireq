@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -21,8 +22,8 @@ const (
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) error {
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
-	mux.Handle("POST /api/v1/user/register", registerHandler(logger.WithGroup("/api/v1/user/register"), services.User))
-	mux.Handle("POST /api/v1/user/login", loginHandler(logger.WithGroup("/api/v1/user/login"), services.User))
+	mux.Handle("POST /api/v1/user/register", HandleJSON(registerController(logger.WithGroup("POST /api/v1/user/register"), services.User)))
+	mux.Handle("POST /api/v1/user/login", HandleJSON(loginController(logger.WithGroup("POST /api/v1/user/login"), services.User)))
 
 	return nil
 }
@@ -44,7 +45,7 @@ type registerPayload struct {
 	PlainPassword string `json:"plain_password"`
 }
 
-func (p *registerPayload) validate() *WebError {
+func (p registerPayload) Validate() *WebError {
 	var fieldErrors []FieldError
 
 	if _, err := mail.ParseAddress(p.Email); err != nil {
@@ -71,42 +72,25 @@ type registerResponse struct {
 	ID string `json:"id"`
 }
 
-func registerHandler(logger *slog.Logger, service *UserService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := DecodeJSON[registerPayload](r)
-		if err != nil {
-			WriteJSONError(w, NewMalformedRequestError())
-			return
-		}
-		if err := p.validate(); err != nil {
-			WriteJSONError(w, err)
-			return
-		}
-
+func registerController(logger *slog.Logger, service *UserService) ControllerLogic[registerPayload, *registerResponse] {
+	return func(ctx context.Context, in registerPayload) (*registerResponse, int, *WebError) {
 		toCreate := types.UserToCreate{
-			Email:         p.Email,
-			FirstName:     p.FirstName,
-			LastName:      p.LastName,
-			PlainPassword: p.PlainPassword,
+			Email:         in.Email,
+			FirstName:     in.FirstName,
+			LastName:      in.LastName,
+			PlainPassword: in.PlainPassword,
 		}
-		id, err := service.Register(r.Context(), toCreate)
+		id, err := service.Register(ctx, toCreate)
 		if errors.Is(err, ErrEmailExists) {
-			WriteJSONError(w, &WebError{Code: CodeEmailExists, Status: http.StatusConflict})
-			return
+			return nil, 0, &WebError{Code: CodeEmailExists, Status: http.StatusConflict}
 		}
 		if err != nil {
 			logger.Error("could not register user", "err", err)
-			WriteJSONError(w, NewInternalError())
-			return
+			return nil, 0, NewInternalError()
 		}
 
-		err = EncodeJSON(w, http.StatusCreated, registerResponse{ID: id})
-		if err != nil {
-			logger.Error("unexpected json encoding error", "err", err)
-			WriteJSONError(w, NewInternalError())
-			return
-		}
-	})
+		return &registerResponse{ID: id}, http.StatusCreated, nil
+	}
 }
 
 type loginPayload struct {
@@ -114,7 +98,7 @@ type loginPayload struct {
 	Password string `json:"password"`
 }
 
-func (p *loginPayload) validate() *WebError {
+func (p loginPayload) Validate() *WebError {
 	var fieldErrors []FieldError
 
 	if p.Email == "" {
@@ -136,33 +120,17 @@ type loginResponse struct {
 	SessionID string `json:"session_id"`
 }
 
-func loginHandler(logger *slog.Logger, service *UserService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := DecodeJSON[loginPayload](r)
-		if err != nil {
-			WriteJSONError(w, NewMalformedRequestError())
-			return
-		}
-		if err := p.validate(); err != nil {
-			WriteJSONError(w, err)
-			return
-		}
-
-		usrID, sessionID, err := service.Login(r.Context(), p.Email, p.Password)
+func loginController(logger *slog.Logger, service *UserService) ControllerLogic[loginPayload, *loginResponse] {
+	return func(ctx context.Context, in loginPayload) (*loginResponse, int, *WebError) {
+		usrID, sessionID, err := service.Login(ctx, in.Email, in.Password)
 		if errors.Is(err, ErrInvalidLogin) {
-			WriteJSONError(w, &WebError{Code: CodeInvalidCredentials, Status: http.StatusBadRequest})
-			return
+			return nil, 0, &WebError{Code: CodeInvalidCredentials, Status: http.StatusBadRequest}
 		}
 		if err != nil {
-			WriteJSONError(w, NewInternalError())
-			return
+			logger.Error("could not login user", "err", err)
+			return nil, 0, NewInternalError()
 		}
 
-		err = EncodeJSON(w, http.StatusOK, loginResponse{UserID: usrID, SessionID: sessionID})
-		if err != nil {
-			logger.Error("unexpected json encoding error", "err", err)
-			WriteJSONError(w, NewInternalError())
-			return
-		}
-	})
+		return &loginResponse{UserID: usrID, SessionID: sessionID}, http.StatusOK, nil
+	}
 }
