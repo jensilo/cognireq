@@ -1,13 +1,13 @@
 package pkg
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/mail"
 
+	"github.com/google/uuid"
 	"github.com/jensilo/harmony/pkg/types"
 )
 
@@ -77,14 +77,14 @@ type registerResponse struct {
 }
 
 func registerController(logger *slog.Logger, service *UserService) ControllerLogic[registerPayload, *registerResponse] {
-	return func(ctx context.Context, in registerPayload) (*registerResponse, int, *WebError) {
+	return func(w http.ResponseWriter, r *http.Request, in registerPayload) (*registerResponse, int, *WebError) {
 		toCreate := types.UserToCreate{
 			Email:         in.Email,
 			FirstName:     in.FirstName,
 			LastName:      in.LastName,
 			PlainPassword: in.PlainPassword,
 		}
-		id, err := service.Register(ctx, toCreate)
+		id, err := service.Register(r.Context(), toCreate)
 		if errors.Is(err, ErrEmailExists) {
 			return nil, 0, &WebError{Code: CodeEmailExists, Status: http.StatusConflict}
 		}
@@ -119,14 +119,11 @@ func (p loginPayload) Validate() *WebError {
 	return nil
 }
 
-type loginResponse struct {
-	UserID    string `json:"user_id"`
-	SessionID string `json:"session_id"`
-}
+type loginResponse struct{}
 
 func loginController(logger *slog.Logger, service *UserService) ControllerLogic[loginPayload, *loginResponse] {
-	return func(ctx context.Context, in loginPayload) (*loginResponse, int, *WebError) {
-		usrID, sessionID, err := service.Login(ctx, in.Email, in.Password)
+	return func(w http.ResponseWriter, r *http.Request, in loginPayload) (*loginResponse, int, *WebError) {
+		_, sessionID, err := service.Login(r.Context(), in.Email, in.Password)
 		if errors.Is(err, ErrInvalidLogin) {
 			return nil, 0, &WebError{Code: CodeInvalidCredentials, Status: http.StatusBadRequest}
 		}
@@ -135,30 +132,39 @@ func loginController(logger *slog.Logger, service *UserService) ControllerLogic[
 			return nil, 0, NewInternalError()
 		}
 
-		return &loginResponse{UserID: usrID, SessionID: sessionID}, http.StatusOK, nil
+		SetSessionCookie(w, sessionID)
+
+		return &loginResponse{}, http.StatusOK, nil
 	}
 }
 
-type logoutPayload struct {
-	SessionID string `json:"session_id"`
-}
+type logoutPayload struct{}
 
 func (p logoutPayload) Validate() *WebError {
-	if p.SessionID == "" {
-		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "session_id"}})
-	}
-
 	return nil
 }
 
 type logoutResponse struct{}
 
 func logoutController(logger *slog.Logger, service *UserService) ControllerLogic[logoutPayload, *logoutResponse] {
-	return func(ctx context.Context, in logoutPayload) (*logoutResponse, int, *WebError) {
-		if err := service.Logout(ctx, in.SessionID); err != nil {
+	return func(w http.ResponseWriter, r *http.Request, in logoutPayload) (*logoutResponse, int, *WebError) {
+		cookie, err := r.Cookie("session_id")
+		if err != nil {
+			return &logoutResponse{}, http.StatusOK, nil
+		}
+
+		// check if cookie value is UUID
+		sessionID, err := uuid.Parse(cookie.Value)
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		if err := service.Logout(r.Context(), sessionID.String()); err != nil {
 			logger.Error("could not logout user", "err", err)
 			return nil, 0, NewInternalError()
 		}
+
+		RemoveSessionCookie(w)
 
 		return &logoutResponse{}, http.StatusOK, nil
 	}
