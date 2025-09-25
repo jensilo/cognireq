@@ -88,3 +88,16 @@ func (us *UserService) createLoginSession(ctx context.Context, usrID pgtype.UUID
 		db.CreateSessionParams{UserID: usrID, ExpiryAt: pgtype.Timestamp{Time: expiry, Valid: true}},
 	)
 }
+
+func (us *UserService) Logout(ctx context.Context, sessionID string) error {
+	var sessionUUID pgtype.UUID
+	if err := sessionUUID.Scan(sessionID); err != nil {
+		return err
+	}
+
+	if err := us.queries.DeleteSession(ctx, sessionUUID); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -52,6 +52,15 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.
 	return id, err
 }
 
+const deleteSession = `-- name: DeleteSession :exec
+DELETE FROM sessions WHERE id = $1
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSession, id)
+	return err
+}
+
 const sessionByUserID = `-- name: SessionByUserID :one
 SELECT id, user_id, expiry_at, created_at FROM sessions
 WHERE user_id = $1 LIMIT 1

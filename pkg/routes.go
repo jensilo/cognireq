@@ -22,8 +22,12 @@ const (
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) error {
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
-	mux.Handle("POST /api/v1/user/register", HandleJSON(registerController(logger.WithGroup("POST /api/v1/user/register"), services.User)))
-	mux.Handle("POST /api/v1/user/login", HandleJSON(loginController(logger.WithGroup("POST /api/v1/user/login"), services.User)))
+	mux.Handle("POST /api/v1/user/register",
+		HandleJSON(registerController(logger.WithGroup("POST /api/v1/user/register"), services.User)))
+	mux.Handle("POST /api/v1/user/login",
+		HandleJSON(loginController(logger.WithGroup("POST /api/v1/user/login"), services.User)))
+	mux.Handle("POST /api/v1/user/logout",
+		HandleJSON(logoutController(logger.WithGroup("POST /api/v1/user/logout"), services.User)))
 
 	return nil
 }
@@ -132,5 +136,30 @@ func loginController(logger *slog.Logger, service *UserService) ControllerLogic[
 		}
 
 		return &loginResponse{UserID: usrID, SessionID: sessionID}, http.StatusOK, nil
+	}
+}
+
+type logoutPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+func (p logoutPayload) Validate() *WebError {
+	if p.SessionID == "" {
+		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "session_id"}})
+	}
+
+	return nil
+}
+
+type logoutResponse struct{}
+
+func logoutController(logger *slog.Logger, service *UserService) ControllerLogic[logoutPayload, *logoutResponse] {
+	return func(ctx context.Context, in logoutPayload) (*logoutResponse, int, *WebError) {
+		if err := service.Logout(ctx, in.SessionID); err != nil {
+			logger.Error("could not logout user", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		return &logoutResponse{}, http.StatusOK, nil
 	}
 }
