@@ -49,6 +49,4 @@ POST {{host}}/api/v1/user/logout
 Content-Type: application/json
 Accept: application/json
 
-{
-  "session_id": "b3e3056b-16d2-472b-beb8-4052f6a34c5d"
-}
+{}

@@ -2,11 +2,11 @@ package pkg
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 )
 
 // ControllerLogic represents the core business logic of a controller.
-type ControllerLogic[In, Out any] func(ctx context.Context, in In) (Out, int, *WebError)
+type ControllerLogic[In, Out any] func(w http.ResponseWriter, r *http.Request, in In) (Out, int, *WebError)
 
 type FieldError struct {
 	Field string `json:"field"`
@@ -86,7 +86,7 @@ func HandleJSON[In Validatable, Out any](logic ControllerLogic[In, Out]) http.Ha
 			return
 		}
 
-		out, status, err := logic(r.Context(), in)
+		out, status, err := logic(w, r, in)
 		if err != nil {
 			WriteJSONError(w, err)
 			return
@@ -134,4 +134,30 @@ func WriteJSONError(w http.ResponseWriter, err *WebError) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(err.Status)
 	_ = json.NewEncoder(w).Encode(err)
+}
+
+// SetSessionCookie sets a secure, HTTP-only session cookie.
+func SetSessionCookie(w http.ResponseWriter, sessionID string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    sessionID,
+		Path:     "/",
+		Expires:  time.Now().Add(time.Hour),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// RemoveSessionCookie sets session cookie to expired and empty.
+func RemoveSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0), // Set expiry to the past
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
