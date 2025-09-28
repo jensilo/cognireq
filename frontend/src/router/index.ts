@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {createRouter, createWebHistory} from 'vue-router'
 import LandingPage from "@/views/LandingPage.vue";
 import {type Composer, type I18n} from "vue-i18n";
 
@@ -7,6 +7,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      alias: '/login',
       name: 'login',
       component: LandingPage,
       meta: {
@@ -22,7 +23,7 @@ const router = createRouter({
 })
 
 export function setupRouter(i18n: I18n) {
-  const { t } = i18n.global as Composer;
+  const {t} = i18n.global as Composer;
 
   router.beforeEach((to, from, next) => {
     const titleKey = to.meta.title as string | undefined;
