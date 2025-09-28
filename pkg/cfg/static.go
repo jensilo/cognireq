@@ -3,10 +3,16 @@ package cfg
 import "os"
 
 var (
-	KeyDatabaseUrl = "PG_DATABASE_URL"
-	WebHost        = "WEB_HOST"
-	WebPort        = "WEB_PORT"
+	KeyDatabaseUrl       = "PG_DATABASE_URL"
+	WebHost              = "WEB_HOST"
+	WebPort              = "WEB_PORT"
+	CORSAllowOrigin      = "CORS_ALLOW_ORIGIN"
+	CORSAllowCredentials = "CORS_ALLOW_CREDENTIALS"
+	CORSAllowMethods     = "CORS_ALLOW_METHODS"
+	CORSAllowHeaders     = "CORS_ALLOW_HEADERS"
 )
+
+type GetEnvFunc func(string) string
 
 type WebConfig struct {
 	Host string
@@ -25,11 +31,19 @@ func DefaultGetEnv(key string) string {
 		return ""
 	case WebPort:
 		return "8080"
+	case CORSAllowOrigin:
+		return "http://localhost:5173"
+	case CORSAllowCredentials:
+		return "true"
+	case CORSAllowMethods:
+		return "GET, POST, OPTIONS"
+	case CORSAllowHeaders:
+		return "Content-Type"
 	default:
 		return ""
 	}
 }
 
-func WebConfigFromEnv(getenv func(string) string) *WebConfig {
+func WebConfigFromEnv(getenv GetEnvFunc) *WebConfig {
 	return &WebConfig{Host: getenv(WebHost), Port: getenv(WebPort)}
 }
