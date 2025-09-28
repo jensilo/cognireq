@@ -1,0 +1,34 @@
+{
+  "app": {
+    "name": "HARMONY",
+    "title": "HARMONY - harmonize your requirements understanding"
+  },
+  "login": {
+    "title": "Welcome to HARMONY",
+    "subtitle": "The future of requirements management. We utilize a multi-phased LLM approach to enhance requirements elicitation, ensuring clarity and precision from the start.",
+    "feature-1": "<b>Intelligent Elicitation</b>: LLM-powered suggestion engine.",
+    "feature-2": "<b>Modern Workflow</b>: Designed for agile and scalable development.",
+    "feature-3": "<b>Future-Proof</b>: Built on a foundation for comprehensive RE.",
+    "sign-in-header": "Sign In to Your Workspace",
+    "placeholder-email": "Email Address",
+    "placeholder-password": "Password",
+    "button-loading": "Signing In...",
+    "button-default": "Login",
+    "register-prompt": "New to HARMONY?",
+    "register-link": "Create an account"
+  },
+  "error": {
+    "INTERNAL_ERROR": "A critical server error occurred. Please try again later.",
+    "MALFORMED_REQUEST_ERROR": "The system received an incomplete request. Please refresh and try again.",
+    "VALIDATION_ERROR": "One or more fields are invalid. Please check your inputs.",
+
+    "EMAIL_INVALID": "The email address provided is not valid.",
+    "FIELD_MISSING": "A required field is missing.",
+    "PASSWORD_TOO_SHORT": "The password must be longer.",
+    "EMAIL_EXISTS": "An account with this email already exists. Please login.",
+    "INVALID_CREDENTIALS": "The email and password combination is incorrect.",
+
+    "CLIENT_NETWORK_CONNECTION_ERROR": "Could not connect to the server. Check your network.",
+    "CLIENT_UNKNOWN_ERROR": "An unknown error occurred. Please try again."
+  }
+}

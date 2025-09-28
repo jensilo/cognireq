@@ -4,12 +4,11 @@
 
       <div class="p-8 lg:p-12 flex flex-col justify-center">
         <h1 class="text-4xl font-black text-indigo-700 mb-4">
-          HARMONY
+          {{ $t('app.name') }}
         </h1>
 
         <p class="text-lg text-neutral-600 mb-6">
-          The future of requirements management.
-          We utilize a multi-phased LLM approach to enhance requirements elicitation, ensuring clarity and precision from the start.
+          {{ $t('login.subtitle') }}
         </p>
 
         <div class="space-y-3">
@@ -17,47 +16,41 @@
             <svg class="h-5 w-5 text-indigo-500 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
-            <p class="ml-3 text-base text-neutral-700">
-              <b>Intelligent Elicitation</b>: LLM-powered suggestion engine.
-            </p>
+            <p class="ml-3 text-base text-neutral-700" v-html="$t('login.feature-1')"></p>
           </div>
           <div class="flex items-start">
             <svg class="h-5 w-5 text-indigo-500 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
-            <p class="ml-3 text-base text-neutral-700">
-              <b>Modern Workflow</b>: Designed for agile and scalable development.
-            </p>
+            <p class="ml-3 text-base text-neutral-700" v-html="$t('login.feature-2')"></p>
           </div>
           <div class="flex items-start">
             <svg class="h-5 w-5 text-indigo-500 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
-            <p class="ml-3 text-base text-neutral-700">
-              <b>Future-Proof</b>: Built on a foundation for comprehensive RE.
-            </p>
+            <p class="ml-3 text-base text-neutral-700" v-html="$t('login.feature-3')"></p>
           </div>
         </div>
       </div>
 
       <div class="p-8 lg:p-12 bg-neutral-50 border-t md:border-t-0 md:border-l border-neutral-200 flex flex-col justify-center">
         <h2 class="text-2xl font-semibold text-neutral-800 mb-6 text-center">
-          Sign In to Your Workspace
+          {{ $t('login.sign-in-header') }}
         </h2>
 
         <form @submit.prevent="handleSubmit" class="space-y-6">
           <!-- Error Display Area -->
           <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
-            {{ error }}
+            {{ $t(error) }}
           </div>
 
           <div>
-            <label for="email" class="text-sm font-medium text-neutral-700 sr-only">Email</label>
+            <label for="email" class="text-sm font-medium text-neutral-700 sr-only">{{ $t('login.placeholder-email') }}</label>
             <input
               id="email"
               name="email"
               type="email"
-              placeholder="Email Address"
+              :placeholder="$t('login.placeholder-email')"
               required
               v-model="email"
               :disabled="isLoading"
@@ -65,12 +58,12 @@
             />
           </div>
           <div>
-            <label for="password" class="text-sm font-medium text-neutral-700 sr-only">Password</label>
+            <label for="password" class="text-sm font-medium text-neutral-700 sr-only">{{ $t('login.placeholder-password') }}</label>
             <input
               id="password"
               name="password"
               type="password"
-              placeholder="Password"
+              :placeholder="$t('login.placeholder-password')"
               required
               v-model="password"
               :disabled="isLoading"
@@ -85,15 +78,15 @@
               class="w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-md focus:outline-none focus:ring-3 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
               <span v-if="isLoading" class="flex items-center">
-                <!-- Simple Loading Spinner -->
+                <!-- Loading Spinner -->
                 <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Signing In...
+                {{ $t('login.button-loading') }}
               </span>
               <span v-else>
-                Login
+                {{ $t('login.button-default') }}
               </span>
             </button>
           </div>
@@ -101,9 +94,9 @@
 
         <div class="mt-6 text-center">
           <p class="text-sm text-neutral-600">
-            New to HARMONY?
+            {{ $t('login.register-prompt') }}
             <router-link to="/register" class="font-medium text-indigo-600 hover:text-indigo-500">
-              Create an account
+              {{ $t('login.register-link') }}
             </router-link>
           </p>
         </div>
@@ -125,14 +118,6 @@ const password = ref('');
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
-// TODO install and use i18n
-// TODO redirect /login to this
-// TODO redirect logged in user to /app
-// TODO create /app (dummy for now)
-// TODO protect /app, /logout from non-logged in users
-// TODO create /logout
-// TODO create /register
-
 async function handleSubmit(): Promise<void> {
   error.value = null;
   isLoading.value = true;
@@ -144,11 +129,11 @@ async function handleSubmit(): Promise<void> {
     console.error('Login attempt failed:', err);
 
     if (err instanceof ApiError) {
-      error.value = err.webError.code
+      error.value = `error.${err.webError.code}`;
     } else if (err instanceof Error) {
-      error.value = 'CLIENT_NETWORK_CONNECTION_ERROR';
+      error.value = 'error.CLIENT_NETWORK_CONNECTION_ERROR';
     } else {
-      error.value = 'CLIENT_UNKNOWN_ERROR';
+      error.value = 'error.CLIENT_UNKNOWN_ERROR';
     }
   } finally {
     isLoading.value = false;
