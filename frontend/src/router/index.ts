@@ -1,23 +1,39 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LandingPage from "@/views/LandingPage.vue";
+import {type Composer, type I18n} from "vue-i18n";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'landing-page',
+      name: 'login',
       component: LandingPage,
+      meta: {
+        title: 'login.title'
+      }
     },
     {
       path: '/about',
       name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
     },
   ],
 })
 
-export default router
+export function setupRouter(i18n: I18n) {
+  const { t } = i18n.global as Composer;
+
+  router.beforeEach((to, from, next) => {
+    const titleKey = to.meta.title as string | undefined;
+    if (titleKey) {
+      document.title = t(titleKey);
+    } else {
+      document.title = t('app.title');
+    }
+
+    next();
+  });
+
+  return router;
+}
