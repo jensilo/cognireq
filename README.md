@@ -10,7 +10,7 @@ KISS for now!
 
 ## Frontend
 - [X] install and use i18n
-- [ ] redirect /login to this
+- [X] redirect /login to this => fix with alias
 - [ ] redirect logged in user to /app
 - [ ] create /app (dummy for now)
 - [ ] protect /app, /logout from non-logged in users
