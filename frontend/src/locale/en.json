@@ -4,7 +4,7 @@
     "title": "HARMONY - harmonize your requirements understanding"
   },
   "login": {
-    "title": "Welcome to HARMONY",
+    "title": "@:app.name - @:login.sign-in-header",
     "subtitle": "The future of requirements management. We utilize a multi-phased LLM approach to enhance requirements elicitation, ensuring clarity and precision from the start.",
     "feature-1": "<b>Intelligent Elicitation</b>: LLM-powered suggestion engine.",
     "feature-2": "<b>Modern Workflow</b>: Designed for agile and scalable development.",
