@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/jensilo/harmony/pkg/cfg"
 )
 
 const (
@@ -55,14 +57,16 @@ func NewValidationError(fields []FieldError) *WebError {
 	}
 }
 
-func NewServer(logger *slog.Logger, services *Services) (http.Handler, error) {
+func NewServer(getenv cfg.GetEnvFunc, logger *slog.Logger, services *Services) (http.Handler, error) {
 	mux := http.NewServeMux()
 	err := addRoutes(mux, logger, services)
 	if err != nil {
 		return nil, err
 	}
 
-	return mux, nil
+	finalMux := CORSMiddleware(getenv)(mux)
+
+	return finalMux, nil
 }
 
 // Validatable is a payload that can be validated.
@@ -160,4 +164,25 @@ func RemoveSessionCookie(w http.ResponseWriter) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// CORSMiddleware is a middleware adding CORS allow headers.
+func CORSMiddleware(getenv cfg.GetEnvFunc) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := w.Header()
+
+			h.Set("Access-Control-Allow-Origin", getenv(cfg.CORSAllowOrigin))
+			h.Set("Access-Control-Allow-Credentials", getenv(cfg.CORSAllowCredentials))
+			h.Set("Access-Control-Allow-Methods", getenv(cfg.CORSAllowMethods))
+			h.Set("Access-Control-Allow-Headers", getenv(cfg.CORSAllowHeaders))
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

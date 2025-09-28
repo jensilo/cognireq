@@ -28,7 +28,7 @@ func NewServices(us *UserService) *Services {
 
 func Run(
 	ctx context.Context,
-	getenv func(string) string,
+	getenv cfg.GetEnvFunc,
 	stdout, stderr io.Writer,
 	interrupt os.Signal,
 ) error {
@@ -49,7 +49,7 @@ func Run(
 		NewUserService(queries),
 	)
 
-	srv, err := NewServer(logger, services)
+	srv, err := NewServer(getenv, logger, services)
 	if err != nil {
 		return fmt.Errorf("error constructing server mux: %s", err)
 	}
