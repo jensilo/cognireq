@@ -144,7 +144,7 @@ func (us *UserService) DeleteExpiredSessionsWithThreshold(ctx context.Context) (
 
 // StartSessionCleanup starts the background job to delete expired sessions periodically.
 func StartSessionCleanup(ctx context.Context, logger *slog.Logger, service *UserService, interval time.Duration) {
-	logger = logger.WithGroup("SessionCleanup")
+	logger = logger.With("job", "SessionCleanup")
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 

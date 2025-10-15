@@ -204,7 +204,7 @@ func CORSMiddleware(getenv cfg.GetEnvFunc) func(http.Handler) http.Handler {
 // AuthMiddleware checks the user's login status using their session cookie, adding the user to the request's context.
 // If the user can not be authenticated (no session cookie, session expired) the middleware returns a 401 Unauthorized.
 func AuthMiddleware(logger *slog.Logger, service *UserService) func(http.Handler) http.Handler {
-	logger = logger.WithGroup("AuthMiddleware")
+	logger = logger.With("middleware", "AuthMiddleware")
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
