@@ -161,7 +161,6 @@ func StartSessionCleanup(ctx context.Context, logger *slog.Logger, service *User
 			logger.Info("session cleanup routine shutting down")
 			return
 		case <-ticker.C:
-			logger.Info("cleaning up sessions...")
 			rows, err := service.DeleteExpiredSessionsWithThreshold(ctx)
 			if err != nil {
 				logger.Error("session cleanup failed", "err", err)
