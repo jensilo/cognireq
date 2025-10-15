@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jensilo/harmony/pkg/cfg"
+	"github.com/jensilo/cognireq/pkg/cfg"
 )
 
 func TestRun(t *testing.T) {

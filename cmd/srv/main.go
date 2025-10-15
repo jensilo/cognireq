@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jensilo/harmony/pkg"
-	"github.com/jensilo/harmony/pkg/cfg"
+	"github.com/jensilo/cognireq/pkg"
+	"github.com/jensilo/cognireq/pkg/cfg"
 )
 
 func main() {

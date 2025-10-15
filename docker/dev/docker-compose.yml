@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: backend.Dockerfile
-    container_name: harmony-backend-dev
+    container_name: cognireq-backend-dev
     user: "1000:1000"
     volumes:
       - ../..:/app
@@ -18,7 +18,7 @@ services:
 
   frontend:
     image: node:22-alpine
-    container_name: harmony-frontend-dev
+    container_name: cognireq-frontend-dev
     working_dir: /app/frontend
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes:
@@ -35,13 +35,13 @@ services:
     build:
       context: .
       dockerfile: db.Dockerfile
-    container_name: harmony-db-dev
+    container_name: cognireq-db-dev
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: harmony
+      POSTGRES_DB: cognireq
     volumes:
       - db-data:/var/lib/postgresql/data
 
@@ -49,13 +49,13 @@ services:
     build:
       context: .
       dockerfile: db.Dockerfile
-    container_name: harmony-db-dev-test
+    container_name: cognireq-db-dev-test
     ports:
       - "6543:5432"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: harmony
+      POSTGRES_DB: cognireq
 
 volumes:
   go-pkg:

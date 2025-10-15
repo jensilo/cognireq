@@ -26,7 +26,7 @@ func DefaultGetEnv(key string) string {
 
 	switch key {
 	case KeyDatabaseUrl:
-		return "user=user password=password host=db port=5432 dbname=harmony"
+		return "user=user password=password host=db port=5432 dbname=cognireq"
 	case WebHost:
 		return ""
 	case WebPort:

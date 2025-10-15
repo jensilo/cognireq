@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jensilo/harmony/pkg/db"
-	"github.com/jensilo/harmony/test"
+	"github.com/jensilo/cognireq/pkg/db"
+	"github.com/jensilo/cognireq/test"
 	"github.com/stretchr/testify/require"
 )
 

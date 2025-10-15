@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jensilo/harmony/pkg/db"
-	"github.com/jensilo/harmony/pkg/types"
+	"github.com/jensilo/cognireq/pkg/db"
+	"github.com/jensilo/cognireq/pkg/types"
 	"golang.org/x/crypto/bcrypt"
 )
 

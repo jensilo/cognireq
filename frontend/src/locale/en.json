@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "HARMONY",
-    "title": "HARMONY - harmonize your requirements understanding"
+    "name": "CogniReq",
+    "title": "CogniReq - The AI-Native Requirements Clarity Platform - FOSS"
   },
   "login": {
     "title": "@:app.name - @:login.sign-in-header",
@@ -14,7 +14,7 @@
     "placeholder-password": "Password",
     "button-loading": "Signing In...",
     "button-default": "Login",
-    "register-prompt": "New to HARMONY?",
+    "register-prompt": "New to CogniReq?",
     "register-link": "Create an account"
   },
   "error": {

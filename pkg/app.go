@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jensilo/harmony/pkg/cfg"
-	"github.com/jensilo/harmony/pkg/db"
+	"github.com/jensilo/cognireq/pkg/cfg"
+	"github.com/jensilo/cognireq/pkg/db"
 )
 
 type Services struct {

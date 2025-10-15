@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jensilo/harmony/pkg/types"
+	"github.com/jensilo/cognireq/pkg/types"
 )
 
 const (
