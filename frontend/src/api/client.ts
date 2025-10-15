@@ -1,42 +1,42 @@
 export interface FieldError {
-  field: string;
-  code: string;
+  field: string
+  code: string
 }
 
 export interface WebErrorResponse {
-  code: string;
-  fields?: FieldError[];
+  code: string
+  fields?: FieldError[]
 }
 
 export class ApiError extends Error {
-  public isApiError = true;
-  public webError: WebErrorResponse;
-  public status: number;
+  public isApiError = true
+  public webError: WebErrorResponse
+  public status: number
 
   constructor(webError: WebErrorResponse, status: number) {
-    super(webError.code);
-    this.name = 'ApiError';
-    this.webError = webError;
-    this.status = status;
+    super(webError.code)
+    this.name = 'ApiError'
+    this.webError = webError
+    this.status = status
   }
 }
 
-export const BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+export const BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
 
 /**
  * Attempts to read the response body as JSON.
  * Returns an empty object or undefined if parsing fails (e.g., non-JSON body).
  */
 export async function readBody<T>(response: Response): Promise<T | undefined> {
-  const contentLength = response.headers.get('content-length');
+  const contentLength = response.headers.get('content-length')
   if (response.status === 204 || contentLength === '0' || response.body === null) {
-    return {} as T;
+    return {} as T
   }
 
   try {
-    return await response.json() as T;
+    return (await response.json()) as T
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
@@ -46,38 +46,40 @@ export async function readBody<T>(response: Response): Promise<T | undefined> {
  * @throws {Error} for network failures or unstructured server errors.
  */
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${BASE_URL}${endpoint}`
 
   const userHeaders = (options.headers || {}) as Record<string, string>
   const finalHeaders: Record<string, string> = {
-    'Accept': 'application/json',
+    Accept: 'application/json',
     ...userHeaders,
-  };
+  }
 
   // conditionally set 'Content-Type'
-  const hasBody = options.body !== undefined && options.body !== null;
+  const hasBody = options.body !== undefined && options.body !== null
   const noContentType = !('Content-Type' in finalHeaders) && !('content-type' in finalHeaders)
   if (hasBody && noContentType) {
-    finalHeaders['Content-Type'] = 'application/json';
+    finalHeaders['Content-Type'] = 'application/json'
   }
 
   const requestOptions: RequestInit = {
     ...options,
     credentials: 'include',
     headers: finalHeaders,
-  };
+  }
 
-  const response = await fetch(url, requestOptions);
+  const response = await fetch(url, requestOptions)
 
   if (response.ok) {
-    const body = await readBody<T>(response);
-    return body as T;
+    const body = await readBody<T>(response)
+    return body as T
   }
 
-  const webErrorData = await readBody<WebErrorResponse>(response);
+  const webErrorData = await readBody<WebErrorResponse>(response)
   if (webErrorData?.code) {
-    throw new ApiError(webErrorData, response.status);
+    throw new ApiError(webErrorData, response.status)
   }
 
-  throw new Error(`API request failed with status ${response.status}. The server returned an unstructured error.`);
+  throw new Error(
+    `API request failed with status ${response.status}. The server returned an unstructured error.`,
+  )
 }
