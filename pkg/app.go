@@ -49,6 +49,8 @@ func Run(
 		NewUserService(queries),
 	)
 
+	go StartSessionCleanup(ctx, logger, services.User, 180*time.Minute)
+
 	srv, err := NewServer(getenv, logger, services)
 	if err != nil {
 		return fmt.Errorf("error constructing server mux: %s", err)

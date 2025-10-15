@@ -3,6 +3,7 @@ package pkg
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -129,4 +130,43 @@ func (us *UserService) LoggedInUser(ctx context.Context, sessionID string) (*typ
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}, nil
+}
+
+// DeleteExpiredSessionsWithThreshold deletes all sessions older than a certain threshold (see SQL)
+func (us *UserService) DeleteExpiredSessionsWithThreshold(ctx context.Context) (int, error) {
+	c, err := us.queries.DeleteExpiredSessionsWithThreshold(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(c), nil
+}
+
+// StartSessionCleanup starts the background job to delete expired sessions periodically.
+func StartSessionCleanup(ctx context.Context, logger *slog.Logger, service *UserService, interval time.Duration) {
+	logger = logger.WithGroup("SessionCleanup")
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	logger.Info("started session cleanup routine", "interval", interval.String())
+	rows, err := service.DeleteExpiredSessionsWithThreshold(ctx)
+	if err != nil {
+		logger.Error("initial session cleanup failed", "err", err)
+	}
+	logger.Info("cleaned up initially", "rows affected", rows)
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("session cleanup routine shutting down")
+			return
+		case <-ticker.C:
+			logger.Info("cleaning up sessions...")
+			rows, err := service.DeleteExpiredSessionsWithThreshold(ctx)
+			if err != nil {
+				logger.Error("session cleanup failed", "err", err)
+			}
+			logger.Info("cleaned up", "rows affected", rows)
+		}
+	}
 }

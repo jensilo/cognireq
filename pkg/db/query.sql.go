@@ -52,6 +52,18 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.
 	return id, err
 }
 
+const deleteExpiredSessionsWithThreshold = `-- name: DeleteExpiredSessionsWithThreshold :execrows
+DELETE FROM sessions WHERE sessions.expiry_at < (NOW() - interval '180 minute')
+`
+
+func (q *Queries) DeleteExpiredSessionsWithThreshold(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredSessionsWithThreshold)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1
 `
