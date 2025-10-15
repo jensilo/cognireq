@@ -14,10 +14,9 @@ const i18n = createI18n({
   fallbackLocale: 'en',
   messages: languages,
 }) as I18n
-const router = setupRouter(i18n);
 const app = createApp(App)
-
 app.use(createPinia())
+const router = setupRouter(i18n);
 app.use(router)
 app.use(i18n)
 

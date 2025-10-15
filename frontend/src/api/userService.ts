@@ -1,4 +1,6 @@
-import { apiFetch } from './client.ts'
+import {apiFetch} from './client.ts'
+
+type EmptyResponse = Record<string, never>;
 
 interface RegisterPayload {
   email: string;
@@ -10,8 +12,6 @@ interface RegisterPayload {
 interface RegisterResponse {
   id: string;
 }
-
-type EmptyResponse = Record<string, never>;
 
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
   return apiFetch<RegisterResponse>('/user/register', {
@@ -31,5 +31,21 @@ export async function logoutUser(): Promise<EmptyResponse> {
   return apiFetch<EmptyResponse>('/user/logout', {
     method: 'POST',
     body: JSON.stringify({}),
+  });
+}
+
+interface UserMeResponse {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  last_login: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchUserMe(): Promise<UserMeResponse> {
+  return apiFetch<UserMeResponse>('/user/me', {
+    method: 'GET',
   });
 }

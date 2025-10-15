@@ -47,13 +47,24 @@ export async function readBody<T>(response: Response): Promise<T | undefined> {
  */
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
+
+  const userHeaders = (options.headers || {}) as Record<string, string>
+  const finalHeaders: Record<string, string> = {
+    'Accept': 'application/json',
+    ...userHeaders,
+  };
+
+  // conditionally set 'Content-Type'
+  const hasBody = options.body !== undefined && options.body !== null;
+  const noContentType = !('Content-Type' in finalHeaders) && !('content-type' in finalHeaders)
+  if (hasBody && noContentType) {
+    finalHeaders['Content-Type'] = 'application/json';
+  }
+
   const requestOptions: RequestInit = {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers: finalHeaders,
   };
 
   const response = await fetch(url, requestOptions);
