@@ -11,9 +11,9 @@ type User struct {
 	Email     string
 	FirstName string
 	LastName  string
-	Password  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	LastLogin time.Time
 }
 
 type UserToCreate struct {

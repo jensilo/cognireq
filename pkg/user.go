@@ -15,6 +15,8 @@ import (
 var (
 	ErrEmailExists  = errors.New("email already exists")
 	ErrInvalidLogin = errors.New("invalid login credentials")
+	ErrInvalidUUID  = errors.New("invalid UUID")
+	ErrExpired      = errors.New("expired")
 )
 
 type UserService struct {
@@ -92,7 +94,7 @@ func (us *UserService) createLoginSession(ctx context.Context, usrID pgtype.UUID
 func (us *UserService) Logout(ctx context.Context, sessionID string) error {
 	var sessionUUID pgtype.UUID
 	if err := sessionUUID.Scan(sessionID); err != nil {
-		return err
+		return errors.Join(ErrInvalidUUID, err)
 	}
 
 	if err := us.queries.DeleteSession(ctx, sessionUUID); err != nil {
@@ -100,4 +102,31 @@ func (us *UserService) Logout(ctx context.Context, sessionID string) error {
 	}
 
 	return nil
+}
+
+func (us *UserService) LoggedInUser(ctx context.Context, sessionID string) (*types.User, error) {
+	var sessionUUID pgtype.UUID
+	if err := sessionUUID.Scan(sessionID); err != nil {
+		return nil, errors.Join(ErrInvalidUUID, err)
+	}
+
+	row, err := us.queries.UserBySessionID(ctx, sessionUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	isExpired := row.ExpiryAt.Time.Before(time.Now())
+	if isExpired {
+		return nil, ErrExpired
+	}
+
+	return &types.User{
+		ID:        db.MustIntoUUID(row.ID),
+		Email:     row.Email,
+		FirstName: row.FirstName,
+		LastName:  row.LastName,
+		LastLogin: row.LastLogin.Time,
+		CreatedAt: row.CreatedAt.Time,
+		UpdatedAt: row.UpdatedAt.Time,
+	}, nil
 }

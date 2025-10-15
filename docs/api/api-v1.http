@@ -50,3 +50,7 @@ Content-Type: application/json
 Accept: application/json
 
 {}
+
+### User Me
+GET {{host}}/api/v1/user/me
+Accept: application/json
