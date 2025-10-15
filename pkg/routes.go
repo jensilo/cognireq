@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jensilo/harmony/pkg/types"
@@ -22,12 +23,18 @@ const (
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) error {
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
-	mux.Handle("POST /api/v1/user/register",
-		HandleJSON(registerController(logger.WithGroup("POST /api/v1/user/register"), services.User)))
-	mux.Handle("POST /api/v1/user/login",
-		HandleJSON(loginController(logger.WithGroup("POST /api/v1/user/login"), services.User)))
-	mux.Handle("POST /api/v1/user/logout",
-		HandleJSON(logoutController(logger.WithGroup("POST /api/v1/user/logout"), services.User)))
+	registerPath := "POST /api/v1/user/register"
+	mux.Handle(registerPath, HandleJSON(registerController(logger.WithGroup(registerPath), services.User)))
+
+	loginPath := "POST /api/v1/user/login"
+	mux.Handle(loginPath, HandleJSON(loginController(logger.WithGroup(loginPath), services.User)))
+
+	logoutPath := "POST /api/v1/user/logout"
+	mux.Handle(logoutPath, HandleJSON(logoutController(logger.WithGroup(logoutPath), services.User)))
+
+	mePath := "GET /api/v1/user/me"
+	meAuth := AuthMiddleware(logger.WithGroup(mePath), services.User)
+	mux.Handle(mePath, meAuth(meController()))
 
 	return nil
 }
@@ -168,4 +175,33 @@ func logoutController(logger *slog.Logger, service *UserService) ControllerLogic
 
 		return &logoutResponse{}, http.StatusOK, nil
 	}
+}
+
+type meResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	LastLogin time.Time `json:"last_login"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func meController() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := MustUserFromCtx(r.Context())
+		res := &meResponse{
+			ID:        user.ID,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			LastLogin: user.LastLogin,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		}
+
+		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
+			WriteJSONError(w, NewInternalError())
+		}
+	})
 }

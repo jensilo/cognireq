@@ -109,3 +109,47 @@ func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
 	)
 	return i, err
 }
+
+const userBySessionID = `-- name: UserBySessionID :one
+SELECT users.id, email, first_name, last_name, password, active, last_login, users.created_at, updated_at, sessions.id, user_id, expiry_at, sessions.created_at FROM users
+INNER JOIN sessions ON users.id = sessions.user_id
+WHERE users.active = true AND sessions.id = $1
+ORDER BY sessions.expiry_at DESC LIMIT 1
+`
+
+type UserBySessionIDRow struct {
+	ID          pgtype.UUID      `json:"id"`
+	Email       string           `json:"email"`
+	FirstName   string           `json:"first_name"`
+	LastName    string           `json:"last_name"`
+	Password    string           `json:"password"`
+	Active      pgtype.Bool      `json:"active"`
+	LastLogin   pgtype.Timestamp `json:"last_login"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	ID_2        pgtype.UUID      `json:"id_2"`
+	UserID      pgtype.UUID      `json:"user_id"`
+	ExpiryAt    pgtype.Timestamp `json:"expiry_at"`
+	CreatedAt_2 pgtype.Timestamp `json:"created_at_2"`
+}
+
+func (q *Queries) UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error) {
+	row := q.db.QueryRow(ctx, userBySessionID, id)
+	var i UserBySessionIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.Password,
+		&i.Active,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ID_2,
+		&i.UserID,
+		&i.ExpiryAt,
+		&i.CreatedAt_2,
+	)
+	return i, err
+}

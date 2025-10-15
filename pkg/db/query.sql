@@ -18,5 +18,11 @@ VALUES ($1, $2) RETURNING id;
 SELECT * FROM sessions
 WHERE user_id = $1 LIMIT 1;
 
+-- name: UserBySessionID :one
+SELECT * FROM users
+INNER JOIN sessions ON users.id = sessions.user_id
+WHERE users.active = true AND sessions.id = $1
+ORDER BY sessions.expiry_at DESC LIMIT 1;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1;

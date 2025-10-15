@@ -17,6 +17,7 @@ type Querier interface {
 	SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) error
 	UserByEmail(ctx context.Context, email string) (User, error)
+	UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

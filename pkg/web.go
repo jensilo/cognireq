@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -9,12 +10,18 @@ import (
 	"time"
 
 	"github.com/jensilo/harmony/pkg/cfg"
+	"github.com/jensilo/harmony/pkg/types"
 )
 
+type ctxKey string
+
 const (
+	authUserCtxKey ctxKey = "AuthUser"
+
 	CodeInternalError         = "INTERNAL_ERROR"
 	CodeMalformedRequestError = "MALFORMED_REQUEST_ERROR"
 	CodeValidationError       = "VALIDATION_ERROR"
+	CodeAuthError             = "AUTHORIZATION_ERROR"
 )
 
 // ControllerLogic represents the core business logic of a controller.
@@ -54,6 +61,13 @@ func NewValidationError(fields []FieldError) *WebError {
 		Code:   CodeValidationError,
 		Status: http.StatusBadRequest,
 		Fields: fields,
+	}
+}
+
+func NewAuthError() *WebError {
+	return &WebError{
+		Code:   CodeAuthError,
+		Status: http.StatusUnauthorized,
 	}
 }
 
@@ -185,4 +199,53 @@ func CORSMiddleware(getenv cfg.GetEnvFunc) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// AuthMiddleware checks the user's login status using their session cookie, adding the user to the request's context.
+// If the user can not be authenticated (no session cookie, session expired) the middleware returns a 401 Unauthorized.
+func AuthMiddleware(logger *slog.Logger, service *UserService) func(http.Handler) http.Handler {
+	logger = logger.WithGroup("AuthMiddleware")
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sess, err := r.Cookie("session_id")
+			if err != nil {
+				logger.Info("no cookie found for request")
+				WriteJSONError(w, NewAuthError())
+				return
+			}
+
+			err = sess.Valid()
+			id := sess.Value
+			if err != nil || id == "" {
+				logger.Info("invalid session cookie", "id", id)
+				RemoveSessionCookie(w)
+				WriteJSONError(w, NewAuthError())
+				return
+			}
+
+			ctx := r.Context()
+			user, err := service.LoggedInUser(ctx, id)
+			if err != nil {
+				logger.Info("authentication failed", "id", id, "err", err)
+				RemoveSessionCookie(w)
+				WriteJSONError(w, NewAuthError())
+				return
+			}
+
+			newCtx := context.WithValue(ctx, authUserCtxKey, user)
+			r = r.WithContext(newCtx)
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func MustUserFromCtx(ctx context.Context) *types.User {
+	user, ok := ctx.Value(authUserCtxKey).(*types.User)
+	if !ok {
+		panic("must use auth middleware before trying to retrieve user from context")
+	}
+
+	return user
 }
