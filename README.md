@@ -11,8 +11,9 @@ KISS for now!
 ## Frontend
 - [X] install and use i18n
 - [X] redirect /login to this => fix with alias
-- [ ] redirect logged in user to /app
+- [X] redirect logged in user to /app
+- [X] protect /app, /logout from non-logged in users
 - [ ] create /app (dummy for now)
-- [ ] protect /app, /logout from non-logged in users
 - [ ] create /logout
 - [ ] create /register
+- [ ] change name (to CogniReq)
