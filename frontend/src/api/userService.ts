@@ -1,51 +1,51 @@
-import {apiFetch} from './client.ts'
+import { apiFetch } from './client.ts'
 
-type EmptyResponse = Record<string, never>;
+type EmptyResponse = Record<string, never>
 
 interface RegisterPayload {
-  email: string;
-  first_name: string;
-  last_name: string;
+  email: string
+  first_name: string
+  last_name: string
   plain_password: string
 }
 
 interface RegisterResponse {
-  id: string;
+  id: string
 }
 
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
   return apiFetch<RegisterResponse>('/user/register', {
     method: 'POST',
     body: JSON.stringify(payload),
-  });
+  })
 }
 
 export async function loginUser(email: string, password: string): Promise<EmptyResponse> {
   return apiFetch<EmptyResponse>('/user/login', {
     method: 'POST',
-    body: JSON.stringify({email, password}),
-  });
+    body: JSON.stringify({ email, password }),
+  })
 }
 
 export async function logoutUser(): Promise<EmptyResponse> {
   return apiFetch<EmptyResponse>('/user/logout', {
     method: 'POST',
     body: JSON.stringify({}),
-  });
+  })
 }
 
 interface UserMeResponse {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  last_login: string;
-  created_at: string;
-  updated_at: string;
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  last_login: string
+  created_at: string
+  updated_at: string
 }
 
 export async function fetchUserMe(): Promise<UserMeResponse> {
   return apiFetch<UserMeResponse>('/user/me', {
     method: 'GET',
-  });
+  })
 }
