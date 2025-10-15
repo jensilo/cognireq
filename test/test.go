@@ -13,13 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jensilo/harmony/pkg/db"
+	"github.com/jensilo/cognireq/pkg/db"
 )
 
 //go:embed seed.sql
 var seed []byte
 
-const DBConnStr = "user=user password=password host=localhost port=6543 dbname=harmony"
+const DBConnStr = "user=user password=password host=localhost port=6543 dbname=cognireq"
 
 func InitDB(t *testing.T) *pgxpool.Pool {
 	schemaID := sanitizeSchemaName(fmt.Sprintf("test_%s", uuid.New().String()))

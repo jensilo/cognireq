@@ -1,4 +1,4 @@
-module github.com/jensilo/harmony
+module github.com/jensilo/cognireq
 
 go 1.24
 

@@ -1,12 +1,15 @@
-# HARMONY
-FOSS Requirements Engineering Platform enhanced by AI
+# CogniReq
+The AI-Native Requirements Clarity Platform.
+**FOSS**
 
-KISS for now!
+---
 
 # TODOs
 
 ## Backend
-- [ ] auth middleware
+- [X] auth middleware
+- [ ] change name (to CogniReq)
+- [ ] design data layer for chats
 
 ## Frontend
 - [X] install and use i18n
@@ -17,4 +20,3 @@ KISS for now!
 - [ ] create /app (dummy for now)
 - [ ] create /logout
 - [ ] create /register
-- [ ] change name (to CogniReq)

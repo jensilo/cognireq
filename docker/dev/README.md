@@ -1,3 +1,3 @@
-# HARMONY Development Environment Guide
+# CogniReq Development Environment Guide
 
 tbd

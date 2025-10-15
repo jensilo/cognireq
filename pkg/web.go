@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jensilo/harmony/pkg/cfg"
-	"github.com/jensilo/harmony/pkg/types"
+	"github.com/jensilo/cognireq/pkg/cfg"
+	"github.com/jensilo/cognireq/pkg/types"
 )
 
 type ctxKey string
