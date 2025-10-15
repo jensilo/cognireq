@@ -24,16 +24,16 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
 	registerPath := "POST /api/v1/user/register"
-	mux.Handle(registerPath, HandleJSON(registerController(logger.WithGroup(registerPath), services.User)))
+	mux.Handle(registerPath, HandleJSON(registerController(logger.With("route", registerPath), services.User)))
 
 	loginPath := "POST /api/v1/user/login"
-	mux.Handle(loginPath, HandleJSON(loginController(logger.WithGroup(loginPath), services.User)))
+	mux.Handle(loginPath, HandleJSON(loginController(logger.With("route", loginPath), services.User)))
 
 	logoutPath := "POST /api/v1/user/logout"
-	mux.Handle(logoutPath, HandleJSON(logoutController(logger.WithGroup(logoutPath), services.User)))
+	mux.Handle(logoutPath, HandleJSON(logoutController(logger.With("route", logoutPath), services.User)))
 
 	mePath := "GET /api/v1/user/me"
-	meAuth := AuthMiddleware(logger.WithGroup(mePath), services.User)
+	meAuth := AuthMiddleware(logger.With("route", mePath), services.User)
 	mux.Handle(mePath, meAuth(meController()))
 
 	return nil
