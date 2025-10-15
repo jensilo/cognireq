@@ -13,6 +13,7 @@ KISS for now!
 - [X] redirect /login to this => fix with alias
 - [X] redirect logged in user to /app
 - [X] protect /app, /logout from non-logged in users
+- [ ] use pinia colada in login
 - [ ] create /app (dummy for now)
 - [ ] create /logout
 - [ ] create /register
