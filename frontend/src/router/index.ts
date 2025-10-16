@@ -1,8 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LandingPage from '@/views/LandingPage.vue'
+import LandingPageView from '@/views/LandingPageView.vue'
 import { type Composer, type I18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authStore.ts'
-import InterviewGuideAssist from "@/views/InterviewGuideAssist.vue";
+import InterviewGuideAssistView from '@/views/InterviewGuideAssistView.vue'
+import ProfileView from "@/views/ProfileView.vue";
 
 const PUBLIC_AUTH_ROUTES = ['/', '/login', '/register']
 const PUBLIC_ROUTES: string[] = ['/about']
@@ -13,8 +14,8 @@ const router = createRouter({
     {
       path: '/',
       alias: '/login',
-      name: 'login',
-      component: LandingPage,
+      name: 'landing-page',
+      component: LandingPageView,
       meta: {
         title: 'login.title',
       },
@@ -23,7 +24,12 @@ const router = createRouter({
       path: '/interview-guide-assist',
       alias: '/app',
       name: 'interview-guide-assist',
-      component: InterviewGuideAssist,
+      component: InterviewGuideAssistView,
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
     },
     {
       path: '/about',
@@ -55,7 +61,7 @@ export function setupRouter(i18n: I18n) {
     const isPublic = isPublicAuthRoute || PUBLIC_ROUTES.includes(to.path)
 
     if (authStore.isAuthenticated && isPublicAuthRoute) {
-      return next('app/')
+      return next('/app')
     }
 
     if (!authStore.isAuthenticated && !isPublic) {

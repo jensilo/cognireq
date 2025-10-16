@@ -159,26 +159,26 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ApiError } from '@/api/client.ts'
-import {useAuthStore} from "@/stores/authStore.ts";
+import { useAuthStore } from '@/stores/authStore.ts'
 
-const { loginMutation, login } = useAuthStore();
-const router = useRouter();
+const { loginMutation, login } = useAuthStore()
+const router = useRouter()
 
-const email = ref('');
-const password = ref('');
+const email = ref('')
+const password = ref('')
 const error = ref<string | null>(null)
 
 async function handleSubmit(): Promise<void> {
   try {
-    await login({email: email.value, password: password.value});
-    await router.push('/app');
+    await login({ email: email.value, password: password.value })
+    await router.push('/app')
   } catch (err) {
     if (err instanceof ApiError) {
-      error.value = `error.${err.webError.code}`;
+      error.value = `error.${err.webError.code}`
     } else if (err instanceof Error) {
-      error.value = 'error.CLIENT_NETWORK_CONNECTION_ERROR';
+      error.value = 'error.CLIENT_NETWORK_CONNECTION_ERROR'
     } else {
-      error.value = 'error.CLIENT_UNKNOWN_ERROR';
+      error.value = 'error.CLIENT_UNKNOWN_ERROR'
     }
   }
 }
