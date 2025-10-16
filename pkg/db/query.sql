@@ -27,5 +27,5 @@ ORDER BY sessions.expiry_at DESC LIMIT 1;
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1;
 
--- name: DeleteExpiredSessionsWithThreshold :execrows
-DELETE FROM sessions WHERE sessions.expiry_at < (NOW() - interval '180 minute');
+-- name: DeleteExpiredSessions :execrows
+DELETE FROM sessions WHERE sessions.expiry_at < NOW();

@@ -49,7 +49,7 @@ func Run(
 		NewUserService(queries),
 	)
 
-	go StartSessionCleanup(ctx, logger, services.User, 180*time.Minute)
+	go StartSessionCleanup(ctx, logger, services.User, 90*time.Minute)
 
 	srv, err := NewServer(getenv, logger, services)
 	if err != nil {
