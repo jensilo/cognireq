@@ -21,8 +21,11 @@ const router = createRouter({
       },
     },
     {
+      path: '/app',
+      redirect: '/interview-guide-assist',
+    },
+    {
       path: '/interview-guide-assist',
-      alias: '/app',
       name: 'interview-guide-assist',
       component: InterviewGuideAssistView,
     },
