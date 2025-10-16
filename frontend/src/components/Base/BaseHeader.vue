@@ -1,3 +1,5 @@
+<script setup lang="ts"></script>
+
 <template>
   <header class="h-16 flex items-center justify-end px-6 shadow bg-white border-b">
     <span class="text-gray-700 font-medium">
@@ -7,5 +9,3 @@
     </span>
   </header>
 </template>
-
-<script setup lang="ts"></script>
