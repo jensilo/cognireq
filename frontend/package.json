@@ -23,11 +23,13 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@iconify/json": "^2.2.396",
     "@tsconfig/node22": "^22.0.2",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.15.32",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vitest/eslint-plugin": "^1.2.7",
+    "@vue/compiler-sfc": "^3.5.22",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.5.1",
     "@vue/test-utils": "^2.4.6",
@@ -39,6 +41,8 @@
     "npm-run-all2": "^8.0.4",
     "prettier": "3.5.3",
     "typescript": "~5.8.0",
+    "unplugin-icons": "^22.4.2",
+    "unplugin-vue-components": "^29.1.0",
     "vite": "^7.0.0",
     "vite-plugin-vue-devtools": "^7.7.7",
     "vitest": "^3.2.4",

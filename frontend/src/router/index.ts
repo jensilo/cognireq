@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LandingPage from '@/views/LandingPage.vue'
 import { type Composer, type I18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authStore.ts'
+import InterviewGuideAssist from "@/views/InterviewGuideAssist.vue";
 
 const PUBLIC_AUTH_ROUTES = ['/', '/login', '/register']
 const PUBLIC_ROUTES: string[] = ['/about']
@@ -17,6 +18,12 @@ const router = createRouter({
       meta: {
         title: 'login.title',
       },
+    },
+    {
+      path: '/interview-guide-assist',
+      alias: '/app',
+      name: 'interview-guide-assist',
+      component: InterviewGuideAssist,
     },
     {
       path: '/about',
