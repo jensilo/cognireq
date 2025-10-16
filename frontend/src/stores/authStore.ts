@@ -23,7 +23,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     user: userMeQuery.data,
     login: loginMutation.mutateAsync,
-    isLoadingLogin: loginMutation.isLoading,
+    loginMutation: loginMutation,
     ...userMeQuery,
   }
 })
