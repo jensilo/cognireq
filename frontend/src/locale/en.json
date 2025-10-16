@@ -3,6 +3,14 @@
     "name": "CogniReq",
     "title": "CogniReq - The AI-Native Requirements Clarity Platform - FOSS"
   },
+  "nav": {
+    "interview-guide-assist": "Interview Guide Assist",
+    "about": "About",
+    "logout": "Logout"
+  },
+  "header": {
+    "user-profile": "Profile"
+  },
   "login": {
     "title": "@:app.name - @:login.sign-in-header",
     "subtitle": "The future of requirements management. We utilize a multi-phased LLM approach to enhance requirements elicitation, ensuring clarity and precision from the start.",

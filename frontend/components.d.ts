@@ -8,8 +8,14 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    IMdiAccountBox: typeof import('~icons/mdi/account-box')['default']
+    BaseHeader: typeof import('./src/components/Base/BaseHeader.vue')['default']
+    BaseLayout: typeof import('./src/components/Base/BaseLayout.vue')['default']
+    BaseNavbar: typeof import('./src/components/Base/BaseNavbar.vue')['default']
+    IHeroiconsArrowRightStartOnRectangle: typeof import('~icons/heroicons/arrow-right-start-on-rectangle')['default']
+    IHeroiconsBoltSolid: typeof import('~icons/heroicons/bolt-solid')['default']
+    IHeroiconsChevronDoubleLeft: typeof import('~icons/heroicons/chevron-double-left')['default']
     LoadingSpinner: typeof import('./src/components/LoadingSpinner.vue')['default']
+    LogoutButton: typeof import('./src/components/LogoutButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
