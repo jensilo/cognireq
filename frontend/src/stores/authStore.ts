@@ -20,28 +20,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logoutMutation = useMutation({
     mutation: () => logoutUser(),
+    onSuccess: () => cache.setQueryData(['user', 'me'], undefined),
   })
 
   const isAuthenticated = computed(() => {
     return !!userMeQuery.data.value
   })
 
-  const logout = async () => {
-    await logoutMutation.mutateAsync()
-    if (logoutMutation.status.value === 'error') {
-      console.error('logout should never error')
-      return
-    }
-
-    cache.setQueryData(['user', 'me'], undefined)
-  }
-
   return {
     isAuthenticated,
     user: userMeQuery.data,
     login: loginMutation.mutateAsync,
     loginMutation: loginMutation,
-    logout: logout,
+    logout: logoutMutation.mutateAsync,
     logoutMutation: logoutMutation,
     ...userMeQuery,
   }
