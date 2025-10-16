@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import LogoutButton from "@/components/LogoutButton.vue";
+import LogoutButton from '@/components/LogoutButton.vue'
 
 const props = defineProps<{ isCollapsed: boolean }>()
 const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()

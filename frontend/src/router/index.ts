@@ -3,7 +3,7 @@ import LandingPageView from '@/views/LandingPageView.vue'
 import { type Composer, type I18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authStore.ts'
 import InterviewGuideAssistView from '@/views/InterviewGuideAssistView.vue'
-import ProfileView from "@/views/ProfileView.vue";
+import ProfileView from '@/views/ProfileView.vue'
 
 const PUBLIC_AUTH_ROUTES = ['/', '/login', '/register']
 const PUBLIC_ROUTES: string[] = ['/about']

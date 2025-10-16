@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import {useMutation, useQuery, useQueryCache, type UseQueryEntry} from '@pinia/colada'
-import {fetchUserMe, loginUser, logoutUser} from '@/api/userService.ts'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { fetchUserMe, loginUser, logoutUser } from '@/api/userService.ts'
 import { computed } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
