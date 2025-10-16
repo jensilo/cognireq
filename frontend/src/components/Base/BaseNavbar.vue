@@ -2,16 +2,26 @@
 import { computed } from 'vue'
 import LogoutButton from '@/components/LogoutButton.vue'
 
+// explicitly import the icon components to ensure they are not tree-shaken.
+import IHeroiconsLightBulb from '~icons/heroicons/light-bulb'
+import IHeroiconsInformationCircle from '~icons/heroicons/information-circle'
+
 const props = defineProps<{ isCollapsed: boolean }>()
 const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()
+
+// map the imported components to a lookup object.
+const iconMap = {
+  'i-heroicons-light-bulb': IHeroiconsLightBulb,
+  'i-heroicons-information-circle': IHeroiconsInformationCircle,
+}
 
 const navItems = [
   {
     name: 'Interview Guide Assist',
     to: { name: 'interview-guide-assist' },
-    iconComponent: 'i-heroicons-light-bulb',
+    iconKey: 'i-heroicons-light-bulb',
   },
-  { name: 'About', to: { name: 'about' }, iconComponent: 'i-heroicons-information-circle' },
+  { name: 'About', to: { name: 'about' }, iconKey: 'i-heroicons-information-circle' },
 ]
 
 const collapseClass = computed(() =>
@@ -59,9 +69,9 @@ const toggleSidebar = () => {
         active-class="bg-indigo-600 text-white shadow-md hover:bg-indigo-500"
         inactive-class="text-gray-300 hover:bg-gray-700"
       >
-        <!-- Dynamic Icon Component -->
+        <!-- Dynamic Icon Component: Now uses the component object from the map -->
         <component
-          :is="item.iconComponent"
+          :is="iconMap[item.iconKey]"
           class="text-xl shrink-0"
           :class="{ 'mr-3': !isCollapsed }"
         />
