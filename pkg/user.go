@@ -132,9 +132,9 @@ func (us *UserService) LoggedInUser(ctx context.Context, sessionID string) (*typ
 	}, nil
 }
 
-// DeleteExpiredSessionsWithThreshold deletes all sessions older than a certain threshold (see SQL)
-func (us *UserService) DeleteExpiredSessionsWithThreshold(ctx context.Context) (int, error) {
-	c, err := us.queries.DeleteExpiredSessionsWithThreshold(ctx)
+// DeleteExpiredSessions deletes all sessions older than a certain threshold (see SQL)
+func (us *UserService) DeleteExpiredSessions(ctx context.Context) (int, error) {
+	c, err := us.queries.DeleteExpiredSessions(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -149,7 +149,7 @@ func StartSessionCleanup(ctx context.Context, logger *slog.Logger, service *User
 	defer ticker.Stop()
 
 	logger.Info("started session cleanup routine", "interval", interval.String())
-	rows, err := service.DeleteExpiredSessionsWithThreshold(ctx)
+	rows, err := service.DeleteExpiredSessions(ctx)
 	if err != nil {
 		logger.Error("initial session cleanup failed", "err", err)
 	}
@@ -161,7 +161,7 @@ func StartSessionCleanup(ctx context.Context, logger *slog.Logger, service *User
 			logger.Info("session cleanup routine shutting down")
 			return
 		case <-ticker.C:
-			rows, err := service.DeleteExpiredSessionsWithThreshold(ctx)
+			rows, err := service.DeleteExpiredSessions(ctx)
 			if err != nil {
 				logger.Error("session cleanup failed", "err", err)
 			}
