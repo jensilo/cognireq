@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { useQuery } from '@pinia/colada'
-import { fetchUserMe } from '@/api/userService.ts'
+import {useMutation, useQuery} from '@pinia/colada'
+import {fetchUserMe, loginUser} from '@/api/userService.ts'
 import { computed } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -10,6 +10,11 @@ export const useAuthStore = defineStore('auth', () => {
     enabled: false,
   })
 
+  const loginMutation = useMutation({
+    mutation: (cred: {email: string, password: string}) => loginUser(cred.email, cred.password),
+    onSuccess: () => userMeQuery.refresh(),
+  })
+
   const isAuthenticated = computed(() => {
     return !!userMeQuery.data.value
   })
@@ -17,6 +22,8 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     isAuthenticated,
     user: userMeQuery.data,
+    login: loginMutation.mutateAsync,
+    isLoadingLogin: loginMutation.isLoading,
     ...userMeQuery,
   }
 })

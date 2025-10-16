@@ -90,7 +90,7 @@
               :placeholder="$t('login.placeholder-email')"
               required
               v-model="email"
-              :disabled="isLoading"
+              :disabled="isLoadingLogin"
               class="w-full p-3 border border-neutral-300 rounded-lg placeholder-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-neutral-900 disabled:bg-neutral-100 disabled:cursor-not-allowed"
             />
           </div>
@@ -105,7 +105,7 @@
               :placeholder="$t('login.placeholder-password')"
               required
               v-model="password"
-              :disabled="isLoading"
+              :disabled="isLoadingLogin"
               class="w-full p-3 border border-neutral-300 rounded-lg placeholder-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-neutral-900 disabled:bg-neutral-100 disabled:cursor-not-allowed"
             />
           </div>
@@ -113,10 +113,10 @@
           <div>
             <button
               type="submit"
-              :disabled="isLoading"
+              :disabled="isLoadingLogin"
               class="w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-md focus:outline-none focus:ring-3 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              <span v-if="isLoading" class="flex items-center">
+              <span v-if="isLoadingLogin" class="flex items-center">
                 <!-- Loading Spinner -->
                 <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" viewBox="0 0 24 24">
                   <circle
@@ -158,35 +158,28 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { loginUser } from '@/api/userService.ts'
 import { ApiError } from '@/api/client.ts'
+import {useAuthStore} from "@/stores/authStore.ts";
 
-const router = useRouter()
+const { isLoadingLogin, login } = useAuthStore();
+const router = useRouter();
 
-const email = ref('')
-const password = ref('')
-const isLoading = ref(false)
+const email = ref('');
+const password = ref('');
 const error = ref<string | null>(null)
 
 async function handleSubmit(): Promise<void> {
-  error.value = null
-  isLoading.value = true
-
   try {
-    await loginUser(email.value, password.value)
-    await router.push('/app')
+    await login({email: email.value, password: password.value});
+    await router.push('/app');
   } catch (err) {
-    console.error('Login attempt failed:', err)
-
     if (err instanceof ApiError) {
-      error.value = `error.${err.webError.code}`
+      error.value = `error.${err.webError.code}`;
     } else if (err instanceof Error) {
-      error.value = 'error.CLIENT_NETWORK_CONNECTION_ERROR'
+      error.value = 'error.CLIENT_NETWORK_CONNECTION_ERROR';
     } else {
-      error.value = 'error.CLIENT_UNKNOWN_ERROR'
+      error.value = 'error.CLIENT_UNKNOWN_ERROR';
     }
-  } finally {
-    isLoading.value = false
   }
 }
 </script>
