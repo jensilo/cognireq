@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import {useRouter} from "vue-router";
-import {useAuthStore} from "@/stores/authStore.ts";
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore.ts'
 
-defineProps<{ isCollapsed: boolean, collapseClass: string }>();
-const router = useRouter();
-const { logout } = useAuthStore();
+defineProps<{ isCollapsed: boolean; collapseClass: string }>()
+const router = useRouter()
+const { logout } = useAuthStore()
 
 async function handleLogout() {
-  await logout();
-  await router.push('/');
+  await logout()
+  await router.push('/')
 }
 </script>
 
@@ -24,7 +24,7 @@ async function handleLogout() {
       :class="{ 'mr-3': !isCollapsed }"
     />
     <span class="whitespace-nowrap transition-all duration-300" :class="collapseClass">
-          {{ $t('nav.logout') }}
-        </span>
+      {{ $t('nav.logout') }}
+    </span>
   </button>
 </template>

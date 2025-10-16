@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import BaseLayout from "@/components/Base/BaseLayout.vue";
-import LoadingSpinner from "@/components/LoadingSpinner.vue";
+import BaseLayout from '@/components/Base/BaseLayout.vue'
 </script>
 
 <template>
