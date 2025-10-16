@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const loginMutation = useMutation({
     mutation: (cred: { email: string; password: string }) => loginUser(cred.email, cred.password),
-    onSuccess: () => userMeQuery.refresh(),
+    onSuccess: () => userMeQuery.refetch(),
   })
 
   const logoutMutation = useMutation({
