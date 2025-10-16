@@ -90,7 +90,7 @@
               :placeholder="$t('login.placeholder-email')"
               required
               v-model="email"
-              :disabled="isLoadingLogin"
+              :disabled="loginMutation.isLoading"
               class="w-full p-3 border border-neutral-300 rounded-lg placeholder-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-neutral-900 disabled:bg-neutral-100 disabled:cursor-not-allowed"
             />
           </div>
@@ -105,7 +105,7 @@
               :placeholder="$t('login.placeholder-password')"
               required
               v-model="password"
-              :disabled="isLoadingLogin"
+              :disabled="loginMutation.isLoading"
               class="w-full p-3 border border-neutral-300 rounded-lg placeholder-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-neutral-900 disabled:bg-neutral-100 disabled:cursor-not-allowed"
             />
           </div>
@@ -113,10 +113,10 @@
           <div>
             <button
               type="submit"
-              :disabled="isLoadingLogin"
+              :disabled="loginMutation.isLoading"
               class="w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-md focus:outline-none focus:ring-3 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              <span v-if="isLoadingLogin" class="flex items-center">
+              <span v-if="loginMutation.isLoading" class="flex items-center">
                 <!-- Loading Spinner -->
                 <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" viewBox="0 0 24 24">
                   <circle
@@ -161,7 +161,7 @@ import { useRouter } from 'vue-router'
 import { ApiError } from '@/api/client.ts'
 import {useAuthStore} from "@/stores/authStore.ts";
 
-const { isLoadingLogin, login } = useAuthStore();
+const { loginMutation, login } = useAuthStore();
 const router = useRouter();
 
 const email = ref('');
