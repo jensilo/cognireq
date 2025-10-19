@@ -41,7 +41,7 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 	igaSessions := make([]types.IGASession, len(sessions))
 	var err error
 
-	for key, session := range sessions {
+	for i, session := range sessions {
 		var contextData types.IGASessionContextData
 		errContextData := json.Unmarshal(session.ContextData, &contextData)
 		if errContextData != nil {
@@ -56,7 +56,7 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 			}
 		}
 
-		igaSessions[key] = types.IGASession{
+		igaSessions[i] = types.IGASession{
 			ID:             session.ID,
 			UserID:         session.UserID,
 			ProjectName:    session.ProjectName,
@@ -68,4 +68,44 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 	}
 
 	return igaSessions, err
+}
+
+func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessionToCreate) (*types.IGASession, error) {
+	return nil, nil
+}
+
+func (is *IGAService) SessionByID(ctx context.Context, id uuid.UUID) (*types.IGASession, error) {
+	return nil, nil
+}
+
+func (is *IGAService) PatchSession(ctx context.Context, id uuid.UUID, toUpdate types.IGASessionToUpdate) (*types.IGASession, error) {
+	return nil, nil
+}
+
+func (is *IGAService) ChatLogBySessionID(ctx context.Context, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
+	return nil, nil
+}
+
+func (is *IGAService) SendMessage(ctx context.Context, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
+	return nil, nil
+}
+
+func (is *IGAService) RetryMessage(ctx context.Context, sessionID uuid.UUID) (*types.IGAChatLog, error) {
+	return nil, nil
+}
+
+func (is *IGAService) QuestionsBySessionID(ctx context.Context, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
+	return nil, nil
+}
+
+func (is *IGAService) CreateQuestion(ctx context.Context, toCreate types.IGAScriptQuestionToCreate) (*types.IGAScriptQuestion, error) {
+	return nil, nil
+}
+
+func (is *IGAService) PatchQuestion(ctx context.Context, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {
+	return nil, nil
+}
+
+func (is *IGAService) DeleteQuestion(ctx context.Context, sessionID, questionID uuid.UUID) error {
+	return nil
 }
