@@ -469,11 +469,12 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 }
 
 type chatMessageResponse struct {
-	ID          uuid.UUID                `json:"id"`
-	Role        string                   `json:"role"`
-	MessageText string                   `json:"message_text"`
-	Metadata    types.IGAChatLogMetadata `json:"metadata"`
-	CreatedAt   time.Time                `json:"created_at"`
+	ID           uuid.UUID                `json:"id"`
+	IGASessionID uuid.UUID                `json:"iga_session_id"`
+	Role         string                   `json:"role"`
+	MessageText  string                   `json:"message_text"`
+	Metadata     types.IGAChatLogMetadata `json:"metadata"`
+	CreatedAt    time.Time                `json:"created_at"`
 }
 
 type getChatResponse []chatMessageResponse
@@ -483,11 +484,12 @@ func intoGetChatResponse(logs []types.IGAChatLog) getChatResponse {
 
 	for i, log := range logs {
 		res[i] = chatMessageResponse{
-			ID:          log.ID,
-			Role:        log.Role,
-			MessageText: log.MessageText,
-			Metadata:    log.Metadata,
-			CreatedAt:   log.CreatedAt,
+			ID:           log.ID,
+			IGASessionID: log.IGASessionID,
+			Role:         log.Role,
+			MessageText:  log.MessageText,
+			Metadata:     log.Metadata,
+			CreatedAt:    log.CreatedAt,
 		}
 	}
 
@@ -573,11 +575,12 @@ func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogi
 		}
 
 		res := sendChatResponse{
-			ID:          log.ID,
-			Role:        log.Role,
-			MessageText: log.MessageText,
-			Metadata:    log.Metadata,
-			CreatedAt:   log.CreatedAt,
+			ID:           log.ID,
+			IGASessionID: log.IGASessionID,
+			Role:         log.Role,
+			MessageText:  log.MessageText,
+			Metadata:     log.Metadata,
+			CreatedAt:    log.CreatedAt,
 		}
 
 		return &res, http.StatusCreated, nil
@@ -615,11 +618,12 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 		}
 
 		res := retryChatResponse{
-			ID:          log.ID,
-			Role:        log.Role,
-			MessageText: log.MessageText,
-			Metadata:    log.Metadata,
-			CreatedAt:   log.CreatedAt,
+			ID:           log.ID,
+			IGASessionID: log.IGASessionID,
+			Role:         log.Role,
+			MessageText:  log.MessageText,
+			Metadata:     log.Metadata,
+			CreatedAt:    log.CreatedAt,
 		}
 
 		return &res, http.StatusCreated, nil
@@ -628,6 +632,7 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 
 type questionResponse struct {
 	ID           uuid.UUID                       `json:"id"`
+	IGASessionID uuid.UUID                       `json:"iga_session_id"`
 	ReadableID   string                          `json:"readable_id"`
 	QuestionText string                          `json:"question_text"`
 	NoteText     string                          `json:"note_text"`
@@ -643,6 +648,7 @@ func intoGetQuestionsResponse(questions []types.IGAScriptQuestion) getQuestionsR
 	for i, q := range questions {
 		res[i] = questionResponse{
 			ID:           q.ID,
+			IGASessionID: q.IGASessionID,
 			ReadableID:   q.ReadableID,
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
@@ -732,6 +738,7 @@ func postQuestionController(logger *slog.Logger, service *IGAService) Controller
 
 		res := postQuestionResponse{
 			ID:           q.ID,
+			IGASessionID: q.IGASessionID,
 			ReadableID:   q.ReadableID,
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
@@ -793,6 +800,7 @@ func patchQuestionController(logger *slog.Logger, service *IGAService) Controlle
 
 		res := patchQuestionResponse{
 			ID:           q.ID,
+			IGASessionID: q.IGASessionID,
 			ReadableID:   q.ReadableID,
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
@@ -821,6 +829,7 @@ func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handle
 		}
 
 		if err := service.DeleteQuestion(ctx, user.ID, id, qid); err != nil {
+			logger.Error("could not delete question", "err", err)
 			if errors.Is(err, ErrNotFound) {
 				WriteJSONError(w, NewNotFoundError())
 				return
@@ -829,7 +838,6 @@ func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handle
 				WriteJSONError(w, NewForbiddenError())
 				return
 			}
-			logger.Error("could not delete question", "err", err)
 			WriteJSONError(w, NewInternalError())
 			return
 		}
