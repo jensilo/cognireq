@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	ErrJSONParsing = errors.New("json parsing error")
+	ErrNotFound          = errors.New("not found")
+	ErrMissingPermission = errors.New("missing permission")
+	ErrJSONParsing       = errors.New("json parsing error")
 )
 
 type IGAService struct {
@@ -74,38 +76,38 @@ func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessi
 	return nil, nil
 }
 
-func (is *IGAService) SessionByID(ctx context.Context, id uuid.UUID) (*types.IGASession, error) {
+func (is *IGAService) SessionByID(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGASession, error) {
 	return nil, nil
 }
 
-func (is *IGAService) PatchSession(ctx context.Context, id uuid.UUID, toUpdate types.IGASessionToUpdate) (*types.IGASession, error) {
+func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.UUID, toUpdate types.IGASessionToUpdate) (*types.IGASession, error) {
 	return nil, nil
 }
 
-func (is *IGAService) ChatLogBySessionID(ctx context.Context, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
+func (is *IGAService) ChatLogBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
 	return nil, nil
 }
 
-func (is *IGAService) SendMessage(ctx context.Context, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
+func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
 	return nil, nil
 }
 
-func (is *IGAService) RetryMessage(ctx context.Context, sessionID uuid.UUID) (*types.IGAChatLog, error) {
+func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGAChatLog, error) {
 	return nil, nil
 }
 
-func (is *IGAService) QuestionsBySessionID(ctx context.Context, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
+func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
 	return nil, nil
 }
 
-func (is *IGAService) CreateQuestion(ctx context.Context, toCreate types.IGAScriptQuestionToCreate) (*types.IGAScriptQuestion, error) {
+func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCreate types.IGAScriptQuestionToCreate) (*types.IGAScriptQuestion, error) {
 	return nil, nil
 }
 
-func (is *IGAService) PatchQuestion(ctx context.Context, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {
+func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {
 	return nil, nil
 }
 
-func (is *IGAService) DeleteQuestion(ctx context.Context, sessionID, questionID uuid.UUID) error {
+func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID) error {
 	return nil
 }

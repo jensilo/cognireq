@@ -381,13 +381,22 @@ func createIGAController(logger *slog.Logger, service *IGAService) ControllerLog
 func getIGAMetaHandler(logger *slog.Logger, service *IGAService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			WriteJSONError(w, NewMalformedRequestError())
 			return
 		}
 
-		session, err := service.SessionByID(ctx, id)
+		session, err := service.SessionByID(ctx, user.ID, id)
+		if errors.Is(err, ErrNotFound) {
+			WriteJSONError(w, NewNotFoundError())
+			return
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			WriteJSONError(w, NewForbiddenError())
+			return
+		}
 		if err != nil {
 			logger.Error("could not get IGA session", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -423,6 +432,7 @@ type patchIGAMetaResponse igaSessionResponse
 func patchIGAMetaController(logger *slog.Logger, service *IGAService) ControllerLogic[patchIGAMetaPayload, *patchIGAMetaResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in patchIGAMetaPayload) (*patchIGAMetaResponse, int, *WebError) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			return nil, 0, NewMalformedRequestError()
@@ -433,7 +443,13 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 			ContextData: in.ContextData,
 		}
 
-		session, err := service.PatchSession(ctx, id, toUpdate)
+		session, err := service.PatchSession(ctx, user.ID, id, toUpdate)
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			return nil, 0, NewForbiddenError()
+		}
 		if err != nil {
 			logger.Error("could not update IGA session", "err", err)
 			return nil, 0, NewInternalError()
@@ -481,13 +497,22 @@ func intoGetChatResponse(logs []types.IGAChatLog) getChatResponse {
 func getChatHandler(logger *slog.Logger, service *IGAService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			WriteJSONError(w, NewMalformedRequestError())
 			return
 		}
 
-		logs, err := service.ChatLogBySessionID(ctx, id)
+		logs, err := service.ChatLogBySessionID(ctx, user.ID, id)
+		if errors.Is(err, ErrNotFound) {
+			WriteJSONError(w, NewNotFoundError())
+			return
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			WriteJSONError(w, NewForbiddenError())
+			return
+		}
 		if err != nil {
 			logger.Error("could not get chat logs", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -529,12 +554,19 @@ type sendChatResponse chatMessageResponse
 func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogic[sendChatPayload, *sendChatResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in sendChatPayload) (*sendChatResponse, int, *WebError) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			return nil, 0, NewMalformedRequestError()
 		}
 
-		log, err := service.SendMessage(ctx, id, in.MessageText, types.IGAChatLogMetadata{Type: in.Instruction})
+		log, err := service.SendMessage(ctx, user.ID, id, in.MessageText, types.IGAChatLogMetadata{Type: in.Instruction})
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			return nil, 0, NewForbiddenError()
+		}
 		if err != nil {
 			logger.Error("could not send message", "err", err)
 			return nil, 0, NewInternalError()
@@ -564,12 +596,19 @@ type retryChatResponse chatMessageResponse
 func retryChatController(logger *slog.Logger, service *IGAService) ControllerLogic[retryChatPayload, *retryChatResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in retryChatPayload) (*retryChatResponse, int, *WebError) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			return nil, 0, NewMalformedRequestError()
 		}
 
-		log, err := service.RetryMessage(ctx, id)
+		log, err := service.RetryMessage(ctx, user.ID, id)
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			return nil, 0, NewForbiddenError()
+		}
 		if err != nil {
 			logger.Error("could not retry message", "err", err)
 			return nil, 0, NewInternalError()
@@ -618,13 +657,22 @@ func intoGetQuestionsResponse(questions []types.IGAScriptQuestion) getQuestionsR
 func getQuestionsHandler(logger *slog.Logger, service *IGAService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			WriteJSONError(w, NewMalformedRequestError())
 			return
 		}
 
-		questions, err := service.QuestionsBySessionID(ctx, id)
+		questions, err := service.QuestionsBySessionID(ctx, user.ID, id)
+		if errors.Is(err, ErrNotFound) {
+			WriteJSONError(w, NewNotFoundError())
+			return
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			WriteJSONError(w, NewForbiddenError())
+			return
+		}
 		if err != nil {
 			logger.Error("could not get questions", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -657,6 +705,7 @@ type postQuestionResponse questionResponse
 func postQuestionController(logger *slog.Logger, service *IGAService) ControllerLogic[postQuestionPayload, *postQuestionResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in postQuestionPayload) (*postQuestionResponse, int, *WebError) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			return nil, 0, NewMalformedRequestError()
@@ -669,7 +718,13 @@ func postQuestionController(logger *slog.Logger, service *IGAService) Controller
 			SortOrder:    in.SortOrder,
 		}
 
-		q, err := service.CreateQuestion(ctx, toCreate)
+		q, err := service.CreateQuestion(ctx, user.ID, toCreate)
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			return nil, 0, NewForbiddenError()
+		}
 		if err != nil {
 			logger.Error("could not create question", "err", err)
 			return nil, 0, NewInternalError()
@@ -707,6 +762,7 @@ type patchQuestionResponse questionResponse
 func patchQuestionController(logger *slog.Logger, service *IGAService) ControllerLogic[patchQuestionPayload, *patchQuestionResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in patchQuestionPayload) (*patchQuestionResponse, int, *WebError) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			return nil, 0, NewMalformedRequestError()
@@ -723,7 +779,13 @@ func patchQuestionController(logger *slog.Logger, service *IGAService) Controlle
 			SortOrder:    in.SortOrder,
 		}
 
-		q, err := service.PatchQuestion(ctx, id, qid, toUpdate)
+		q, err := service.PatchQuestion(ctx, user.ID, id, qid, toUpdate)
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if errors.Is(err, ErrMissingPermission) {
+			return nil, 0, NewForbiddenError()
+		}
 		if err != nil {
 			logger.Error("could not update question", "err", err)
 			return nil, 0, NewInternalError()
@@ -745,6 +807,7 @@ func patchQuestionController(logger *slog.Logger, service *IGAService) Controlle
 func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
 		id, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
 			WriteJSONError(w, NewMalformedRequestError())
@@ -757,7 +820,15 @@ func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handle
 			return
 		}
 
-		if err := service.DeleteQuestion(ctx, id, qid); err != nil {
+		if err := service.DeleteQuestion(ctx, user.ID, id, qid); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				WriteJSONError(w, NewNotFoundError())
+				return
+			}
+			if errors.Is(err, ErrMissingPermission) {
+				WriteJSONError(w, NewForbiddenError())
+				return
+			}
 			logger.Error("could not delete question", "err", err)
 			WriteJSONError(w, NewInternalError())
 			return
