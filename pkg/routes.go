@@ -15,6 +15,7 @@ import (
 const (
 	CodeEmailInvalid       = "EMAIL_INVALID"
 	CodeValueMissing       = "FIELD_MISSING"
+	CodeInvalidValue       = "FIELD_INVALID"
 	CodePasswordTooShort   = "PASSWORD_TOO_SHORT"
 	CodeEmailExists        = "EMAIL_EXISTS"
 	CodeInvalidCredentials = "INVALID_CREDENTIALS"
@@ -293,8 +294,8 @@ type getIGAResponse []igaSessionResponse
 func intoGetIGAResponse(igaSessions []types.IGASession) getIGAResponse {
 	res := make(getIGAResponse, len(igaSessions))
 
-	for key, session := range igaSessions {
-		res[key] = igaSessionResponse{
+	for i, session := range igaSessions {
+		res[i] = igaSessionResponse{
 			ID:          session.ID,
 			UserID:      session.UserID,
 			ProjectName: session.ProjectName,
@@ -323,5 +324,445 @@ func getIGAHandler(logger *slog.Logger, service *IGAService) http.Handler {
 		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
 			WriteJSONError(w, NewInternalError())
 		}
+	})
+}
+
+type createIGAPayload struct {
+	ProjectName string                      `json:"project_name"`
+	ContextData types.IGASessionContextData `json:"context_data"`
+}
+
+func (p createIGAPayload) Validate() *WebError {
+	var fieldErrors []FieldError
+
+	if p.ProjectName == "" {
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "project_name"})
+	}
+
+	if len(fieldErrors) > 0 {
+		return NewValidationError(fieldErrors)
+	}
+
+	return nil
+}
+
+type createIGAResponse igaSessionResponse
+
+func createIGAController(logger *slog.Logger, service *IGAService) ControllerLogic[createIGAPayload, *createIGAResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in createIGAPayload) (*createIGAResponse, int, *WebError) {
+		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
+
+		toCreate := types.IGASessionToCreate{
+			UserID:      user.ID,
+			ProjectName: in.ProjectName,
+			ContextData: in.ContextData,
+		}
+
+		session, err := service.CreateSession(ctx, toCreate)
+		if err != nil {
+			logger.Error("could not create IGA session", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := createIGAResponse{
+			ID:          session.ID,
+			UserID:      session.UserID,
+			ProjectName: session.ProjectName,
+			ContextData: session.ContextData,
+			CreatedAt:   session.CreatedAt,
+			UpdatedAt:   session.UpdatedAt,
+		}
+
+		return &res, http.StatusCreated, nil
+	}
+}
+
+func getIGAMetaHandler(logger *slog.Logger, service *IGAService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+
+		session, err := service.SessionByID(ctx, id)
+		if err != nil {
+			logger.Error("could not get IGA session", "err", err)
+			WriteJSONError(w, NewInternalError())
+			return
+		}
+
+		res := igaSessionResponse{
+			ID:          session.ID,
+			UserID:      session.UserID,
+			ProjectName: session.ProjectName,
+			ContextData: session.ContextData,
+			CreatedAt:   session.CreatedAt,
+			UpdatedAt:   session.UpdatedAt,
+		}
+
+		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
+			WriteJSONError(w, NewInternalError())
+		}
+	})
+}
+
+type patchIGAMetaPayload struct {
+	ProjectName *string                      `json:"project_name"`
+	ContextData *types.IGASessionContextData `json:"context_data"`
+}
+
+func (p patchIGAMetaPayload) Validate() *WebError {
+	return nil
+}
+
+type patchIGAMetaResponse igaSessionResponse
+
+func patchIGAMetaController(logger *slog.Logger, service *IGAService) ControllerLogic[patchIGAMetaPayload, *patchIGAMetaResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in patchIGAMetaPayload) (*patchIGAMetaResponse, int, *WebError) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		toUpdate := types.IGASessionToUpdate{
+			ProjectName: in.ProjectName,
+			ContextData: in.ContextData,
+		}
+
+		session, err := service.PatchSession(ctx, id, toUpdate)
+		if err != nil {
+			logger.Error("could not update IGA session", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := patchIGAMetaResponse{
+			ID:          session.ID,
+			UserID:      session.UserID,
+			ProjectName: session.ProjectName,
+			ContextData: session.ContextData,
+			CreatedAt:   session.CreatedAt,
+			UpdatedAt:   session.UpdatedAt,
+		}
+
+		return &res, http.StatusOK, nil
+	}
+}
+
+type chatMessageResponse struct {
+	ID          uuid.UUID                `json:"id"`
+	Role        string                   `json:"role"`
+	MessageText string                   `json:"message_text"`
+	Metadata    types.IGAChatLogMetadata `json:"metadata"`
+	CreatedAt   time.Time                `json:"created_at"`
+}
+
+type getChatResponse []chatMessageResponse
+
+func intoGetChatResponse(logs []types.IGAChatLog) getChatResponse {
+	res := make(getChatResponse, len(logs))
+
+	for i, log := range logs {
+		res[i] = chatMessageResponse{
+			ID:          log.ID,
+			Role:        log.Role,
+			MessageText: log.MessageText,
+			Metadata:    log.Metadata,
+			CreatedAt:   log.CreatedAt,
+		}
+	}
+
+	return res
+}
+
+func getChatHandler(logger *slog.Logger, service *IGAService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+
+		logs, err := service.ChatLogBySessionID(ctx, id)
+		if err != nil {
+			logger.Error("could not get chat logs", "err", err)
+			WriteJSONError(w, NewInternalError())
+			return
+		}
+
+		res := intoGetChatResponse(logs)
+		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
+			WriteJSONError(w, NewInternalError())
+		}
+	})
+}
+
+type sendChatPayload struct {
+	MessageText string                          `json:"message_text"`
+	Instruction types.IGAChatLogInstructionType `json:"instruction"`
+}
+
+func (p sendChatPayload) Validate() *WebError {
+	var fieldErrors []FieldError
+
+	if p.MessageText == "" {
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeValueMissing, Field: "message_text"})
+	}
+
+	if _, err := types.IntoIGAChatLogInstructionType(string(p.Instruction)); err != nil {
+		fieldErrors = append(fieldErrors, FieldError{Code: CodeInvalidValue, Field: "instruction"})
+	}
+
+	if len(fieldErrors) > 0 {
+		return NewValidationError(fieldErrors)
+	}
+
+	return nil
+}
+
+type sendChatResponse chatMessageResponse
+
+func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogic[sendChatPayload, *sendChatResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in sendChatPayload) (*sendChatResponse, int, *WebError) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		log, err := service.SendMessage(ctx, id, in.MessageText, types.IGAChatLogMetadata{Type: in.Instruction})
+		if err != nil {
+			logger.Error("could not send message", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := sendChatResponse{
+			ID:          log.ID,
+			Role:        log.Role,
+			MessageText: log.MessageText,
+			Metadata:    log.Metadata,
+			CreatedAt:   log.CreatedAt,
+		}
+
+		return &res, http.StatusCreated, nil
+	}
+}
+
+// TODO add that retry can contain altered messages
+type retryChatPayload struct{}
+
+func (p retryChatPayload) Validate() *WebError {
+	return nil
+}
+
+type retryChatResponse chatMessageResponse
+
+func retryChatController(logger *slog.Logger, service *IGAService) ControllerLogic[retryChatPayload, *retryChatResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in retryChatPayload) (*retryChatResponse, int, *WebError) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		log, err := service.RetryMessage(ctx, id)
+		if err != nil {
+			logger.Error("could not retry message", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := retryChatResponse{
+			ID:          log.ID,
+			Role:        log.Role,
+			MessageText: log.MessageText,
+			Metadata:    log.Metadata,
+			CreatedAt:   log.CreatedAt,
+		}
+
+		return &res, http.StatusCreated, nil
+	}
+}
+
+type questionResponse struct {
+	ID           uuid.UUID                       `json:"id"`
+	ReadableID   string                          `json:"readable_id"`
+	QuestionText string                          `json:"question_text"`
+	NoteText     string                          `json:"note_text"`
+	SortOrder    int16                           `json:"sort_order"`
+	Metadata     types.IGAScriptQuestionMetadata `json:"metadata,omitempty"`
+}
+
+type getQuestionsResponse []questionResponse
+
+func intoGetQuestionsResponse(questions []types.IGAScriptQuestion) getQuestionsResponse {
+	res := make(getQuestionsResponse, len(questions))
+
+	for i, q := range questions {
+		res[i] = questionResponse{
+			ID:           q.ID,
+			ReadableID:   q.ReadableID,
+			QuestionText: q.QuestionText,
+			NoteText:     q.NoteText,
+			SortOrder:    q.SortOrder,
+			Metadata:     q.Metadata,
+		}
+	}
+
+	return res
+}
+
+func getQuestionsHandler(logger *slog.Logger, service *IGAService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+
+		questions, err := service.QuestionsBySessionID(ctx, id)
+		if err != nil {
+			logger.Error("could not get questions", "err", err)
+			WriteJSONError(w, NewInternalError())
+			return
+		}
+
+		res := intoGetQuestionsResponse(questions)
+		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
+			WriteJSONError(w, NewInternalError())
+		}
+	})
+}
+
+type postQuestionPayload struct {
+	QuestionText string `json:"question_text"`
+	NoteText     string `json:"note_text"`
+	SortOrder    int16  `json:"sort_order"`
+}
+
+func (p postQuestionPayload) Validate() *WebError {
+	if p.QuestionText == "" {
+		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "question_text"}})
+	}
+
+	return nil
+}
+
+type postQuestionResponse questionResponse
+
+func postQuestionController(logger *slog.Logger, service *IGAService) ControllerLogic[postQuestionPayload, *postQuestionResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in postQuestionPayload) (*postQuestionResponse, int, *WebError) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		toCreate := types.IGAScriptQuestionToCreate{
+			IGASessionID: id,
+			QuestionText: in.QuestionText,
+			NoteText:     in.NoteText,
+			SortOrder:    in.SortOrder,
+		}
+
+		q, err := service.CreateQuestion(ctx, toCreate)
+		if err != nil {
+			logger.Error("could not create question", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := postQuestionResponse{
+			ID:           q.ID,
+			ReadableID:   q.ReadableID,
+			QuestionText: q.QuestionText,
+			NoteText:     q.NoteText,
+			SortOrder:    q.SortOrder,
+			Metadata:     q.Metadata,
+		}
+
+		return &res, http.StatusCreated, nil
+	}
+}
+
+type patchQuestionPayload struct {
+	QuestionText *string `json:"question_text"`
+	NoteText     *string `json:"note_text"`
+	SortOrder    *int16  `json:"sort_order"`
+}
+
+func (p patchQuestionPayload) Validate() *WebError {
+	if p.QuestionText != nil && *p.QuestionText == "" {
+		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "question_text"}})
+	}
+
+	return nil
+}
+
+type patchQuestionResponse questionResponse
+
+func patchQuestionController(logger *slog.Logger, service *IGAService) ControllerLogic[patchQuestionPayload, *patchQuestionResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in patchQuestionPayload) (*patchQuestionResponse, int, *WebError) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		qid, err := uuid.Parse(r.PathValue("qid"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		toUpdate := types.IGAScriptQuestionToUpdate{
+			QuestionText: in.QuestionText,
+			NoteText:     in.NoteText,
+			SortOrder:    in.SortOrder,
+		}
+
+		q, err := service.PatchQuestion(ctx, id, qid, toUpdate)
+		if err != nil {
+			logger.Error("could not update question", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		res := patchQuestionResponse{
+			ID:           q.ID,
+			ReadableID:   q.ReadableID,
+			QuestionText: q.QuestionText,
+			NoteText:     q.NoteText,
+			SortOrder:    q.SortOrder,
+			Metadata:     q.Metadata,
+		}
+
+		return &res, http.StatusOK, nil
+	}
+}
+
+func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		id, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+
+		qid, err := uuid.Parse(r.PathValue("qid"))
+		if err != nil {
+			WriteJSONError(w, NewMalformedRequestError())
+			return
+		}
+
+		if err := service.DeleteQuestion(ctx, id, qid); err != nil {
+			logger.Error("could not delete question", "err", err)
+			WriteJSONError(w, NewInternalError())
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 }

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,9 +36,9 @@ type IGASessionToCreate struct {
 }
 
 type IGASessionToUpdate struct {
-	ProjectName    string
-	ContextData    IGASessionContextData
-	SystemMetadata IGASessionSystemMetadata
+	ProjectName    *string
+	ContextData    *IGASessionContextData
+	SystemMetadata *IGASessionSystemMetadata
 }
 
 type IGAScriptQuestionMetadata struct{}
@@ -61,10 +62,10 @@ type IGAScriptQuestionToCreate struct {
 }
 
 type IGAScriptQuestionToUpdate struct {
-	QuestionText string
-	NoteText     string
-	SortOrder    int16
-	Metadata     IGAScriptQuestionMetadata
+	QuestionText *string
+	NoteText     *string
+	SortOrder    *int16
+	Metadata     *IGAScriptQuestionMetadata
 }
 
 type IGAChatLogInstructionType string
@@ -74,6 +75,17 @@ const (
 	IGAChatLogInstructionRefineQuestion IGAChatLogInstructionType = "refine-question"
 	IGAChatLogInstructionRefineContext  IGAChatLogInstructionType = "refine-context"
 )
+
+func IntoIGAChatLogInstructionType(value string) (IGAChatLogInstructionType, error) {
+	switch value {
+	case string(IGAChatLogInstructionMessage),
+		string(IGAChatLogInstructionRefineQuestion),
+		string(IGAChatLogInstructionRefineContext):
+		return IGAChatLogInstructionType(value), nil
+	default:
+		return "", errors.New("invalid chat instruction type")
+	}
+}
 
 type IGAChatLogMetadata struct {
 	Type IGAChatLogInstructionType `json:"type"`
