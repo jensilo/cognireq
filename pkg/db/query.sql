@@ -1,3 +1,7 @@
+--
+--  --- User and Session Management ---
+--
+
 -- name: CreateUser :one
 INSERT INTO users (email, first_name, last_name, password)
 VALUES ($1, $2, $3, $4) RETURNING id;
@@ -29,3 +33,20 @@ DELETE FROM sessions WHERE id = $1;
 
 -- name: DeleteExpiredSessions :execrows
 DELETE FROM sessions WHERE sessions.expiry_at < NOW();
+
+--
+--  --- IGA Session Management ---
+--
+
+-- name: IGASessionsByUser :many
+SELECT * FROM iga_sessions
+WHERE user_id = $1
+ORDER BY updated_at DESC;
+
+--
+--  --- IGA Chat Log Management ---
+--
+
+--
+--  --- IGA Questions Management ---
+--

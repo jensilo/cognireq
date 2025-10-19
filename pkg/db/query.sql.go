@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -17,18 +18,19 @@ VALUES ($1, $2) RETURNING id
 `
 
 type CreateSessionParams struct {
-	UserID   pgtype.UUID      `json:"user_id"`
+	UserID   uuid.UUID        `json:"user_id"`
 	ExpiryAt pgtype.Timestamp `json:"expiry_at"`
 }
 
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error) {
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.ExpiryAt)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
 
 const createUser = `-- name: CreateUser :one
+
 INSERT INTO users (email, first_name, last_name, password)
 VALUES ($1, $2, $3, $4) RETURNING id
 `
@@ -40,14 +42,15 @@ type CreateUserParams struct {
 	Password  string `json:"password"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error) {
+// --- User and Session Management ---
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
 		arg.Password,
 	)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -68,9 +71,45 @@ const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
+}
+
+const iGASessionsByUser = `-- name: IGASessionsByUser :many
+
+SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
+WHERE user_id = $1
+ORDER BY updated_at DESC
+`
+
+// --- IGA Session Management ---
+func (q *Queries) IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error) {
+	rows, err := q.db.Query(ctx, iGASessionsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IgaSession{}
+	for rows.Next() {
+		var i IgaSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ProjectName,
+			&i.ContextData,
+			&i.SystemMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const sessionByUserID = `-- name: SessionByUserID :one
@@ -78,7 +117,7 @@ SELECT id, user_id, expiry_at, created_at FROM sessions
 WHERE user_id = $1 LIMIT 1
 `
 
-func (q *Queries) SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error) {
+func (q *Queries) SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error) {
 	row := q.db.QueryRow(ctx, sessionByUserID, userID)
 	var i Session
 	err := row.Scan(
@@ -95,7 +134,7 @@ UPDATE users SET last_login = CURRENT_TIMESTAMP
 WHERE id = $1
 `
 
-func (q *Queries) UpdateLastLogin(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, updateLastLogin, id)
 	return err
 }
@@ -130,7 +169,7 @@ ORDER BY sessions.expiry_at DESC LIMIT 1
 `
 
 type UserBySessionIDRow struct {
-	ID          pgtype.UUID      `json:"id"`
+	ID          uuid.UUID        `json:"id"`
 	Email       string           `json:"email"`
 	FirstName   string           `json:"first_name"`
 	LastName    string           `json:"last_name"`
@@ -139,13 +178,13 @@ type UserBySessionIDRow struct {
 	LastLogin   pgtype.Timestamp `json:"last_login"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	ID_2        pgtype.UUID      `json:"id_2"`
-	UserID      pgtype.UUID      `json:"user_id"`
+	ID_2        uuid.UUID        `json:"id_2"`
+	UserID      uuid.UUID        `json:"user_id"`
 	ExpiryAt    pgtype.Timestamp `json:"expiry_at"`
 	CreatedAt_2 pgtype.Timestamp `json:"created_at_2"`
 }
 
-func (q *Queries) UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error) {
+func (q *Queries) UserBySessionID(ctx context.Context, id uuid.UUID) (UserBySessionIDRow, error) {
 	row := q.db.QueryRow(ctx, userBySessionID, id)
 	var i UserBySessionIDRow
 	err := row.Scan(

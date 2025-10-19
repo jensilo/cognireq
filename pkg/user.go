@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jensilo/cognireq/pkg/db"
@@ -16,7 +17,6 @@ import (
 var (
 	ErrEmailExists  = errors.New("email already exists")
 	ErrInvalidLogin = errors.New("invalid login credentials")
-	ErrInvalidUUID  = errors.New("invalid UUID")
 	ErrExpired      = errors.New("expired")
 )
 
@@ -84,7 +84,7 @@ func (us *UserService) Login(ctx context.Context, email, password string) (userI
 	return usr.ID.String(), sessID.String(), nil
 }
 
-func (us *UserService) createLoginSession(ctx context.Context, usrID pgtype.UUID) (pgtype.UUID, error) {
+func (us *UserService) createLoginSession(ctx context.Context, usrID uuid.UUID) (uuid.UUID, error) {
 	expiry := time.Now().Add(time.Hour)
 	return us.queries.CreateSession(
 		ctx,
@@ -92,26 +92,12 @@ func (us *UserService) createLoginSession(ctx context.Context, usrID pgtype.UUID
 	)
 }
 
-func (us *UserService) Logout(ctx context.Context, sessionID string) error {
-	var sessionUUID pgtype.UUID
-	if err := sessionUUID.Scan(sessionID); err != nil {
-		return errors.Join(ErrInvalidUUID, err)
-	}
-
-	if err := us.queries.DeleteSession(ctx, sessionUUID); err != nil {
-		return err
-	}
-
-	return nil
+func (us *UserService) Logout(ctx context.Context, sessionID uuid.UUID) error {
+	return us.queries.DeleteSession(ctx, sessionID)
 }
 
-func (us *UserService) LoggedInUser(ctx context.Context, sessionID string) (*types.User, error) {
-	var sessionUUID pgtype.UUID
-	if err := sessionUUID.Scan(sessionID); err != nil {
-		return nil, errors.Join(ErrInvalidUUID, err)
-	}
-
-	row, err := us.queries.UserBySessionID(ctx, sessionUUID)
+func (us *UserService) LoggedInUser(ctx context.Context, sessionID uuid.UUID) (*types.User, error) {
+	row, err := us.queries.UserBySessionID(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +108,7 @@ func (us *UserService) LoggedInUser(ctx context.Context, sessionID string) (*typ
 	}
 
 	return &types.User{
-		ID:        db.MustIntoUUID(row.ID),
+		ID:        row.ID,
 		Email:     row.Email,
 		FirstName: row.FirstName,
 		LastName:  row.LastName,
