@@ -274,7 +274,7 @@ func meController() http.Handler {
 	})
 }
 
-type getIGAResponse []struct {
+type igaSessionResponse struct {
 	ID          uuid.UUID `json:"id"`
 	UserID      uuid.UUID `json:"user_id"`
 	ProjectName string    `json:"project_name"`
@@ -288,10 +288,40 @@ type getIGAResponse []struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type getIGAResponse []igaSessionResponse
+
+func intoGetIGAResponse(igaSessions []types.IGASession) getIGAResponse {
+	res := make(getIGAResponse, len(igaSessions))
+
+	for key, session := range igaSessions {
+		res[key] = igaSessionResponse{
+			ID:          session.ID,
+			UserID:      session.UserID,
+			ProjectName: session.ProjectName,
+			ContextData: session.ContextData,
+			CreatedAt:   session.CreatedAt,
+			UpdatedAt:   session.UpdatedAt,
+		}
+	}
+
+	return res
+}
+
 func getIGAHandler(logger *slog.Logger, service *IGAService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		user := MustUserFromCtx(ctx)
 		sessions, err := service.SessionsByUser(ctx, user.ID)
+		if err != nil {
+			logger.Error("error retrieving IGA", "err", err)
+			WriteJSONError(w, NewInternalError())
+			return
+		}
+
+		res := intoGetIGAResponse(sessions)
+
+		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
+			WriteJSONError(w, NewInternalError())
+		}
 	})
 }

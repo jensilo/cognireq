@@ -54,3 +54,7 @@ Accept: application/json
 ### User Me
 GET {{host}}/api/v1/user/me
 Accept: application/json
+
+### Get IGA
+GET {{host}}/api/v1/iga
+Accept: application/json
