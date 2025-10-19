@@ -7,18 +7,25 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-	CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error)
-	CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error)
+	//
+	//  --- User and Session Management ---
+	//
+	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
-	DeleteSession(ctx context.Context, id pgtype.UUID) error
-	SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
-	UpdateLastLogin(ctx context.Context, id pgtype.UUID) error
+	DeleteSession(ctx context.Context, id uuid.UUID) error
+	//
+	//  --- IGA Session Management ---
+	//
+	IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error)
+	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
+	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UserByEmail(ctx context.Context, email string) (User, error)
-	UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error)
+	UserBySessionID(ctx context.Context, id uuid.UUID) (UserBySessionIDRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

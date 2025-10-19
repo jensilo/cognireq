@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jensilo/cognireq/pkg/cfg"
 	"github.com/jensilo/cognireq/pkg/types"
 )
@@ -224,8 +225,17 @@ func AuthMiddleware(logger *slog.Logger, service *UserService) func(http.Handler
 				return
 			}
 
+			// check if cookie value is UUID
+			sessionID, err := uuid.Parse(id)
+			if err != nil {
+				logger.Info("invalid uuid in session cookie", "id", id)
+				RemoveSessionCookie(w)
+				WriteJSONError(w, NewAuthError())
+				return
+			}
+
 			ctx := r.Context()
-			user, err := service.LoggedInUser(ctx, id)
+			user, err := service.LoggedInUser(ctx, sessionID)
 			if err != nil {
 				logger.Info("authentication failed", "id", id, "err", err)
 				RemoveSessionCookie(w)

@@ -5,18 +5,48 @@
 package db
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type IgaChatLog struct {
+	ID           uuid.UUID        `json:"id"`
+	IgaSessionID uuid.UUID        `json:"iga_session_id"`
+	Role         string           `json:"role"`
+	MessageText  string           `json:"message_text"`
+	Metadata     []byte           `json:"metadata"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+}
+
+type IgaScriptQuestion struct {
+	ID           uuid.UUID   `json:"id"`
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	ReadableID   string      `json:"readable_id"`
+	QuestionText string      `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    int16       `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+}
+
+type IgaSession struct {
+	ID             uuid.UUID        `json:"id"`
+	UserID         uuid.UUID        `json:"user_id"`
+	ProjectName    string           `json:"project_name"`
+	ContextData    []byte           `json:"context_data"`
+	SystemMetadata []byte           `json:"system_metadata"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+}
+
 type Session struct {
-	ID        pgtype.UUID      `json:"id"`
-	UserID    pgtype.UUID      `json:"user_id"`
+	ID        uuid.UUID        `json:"id"`
+	UserID    uuid.UUID        `json:"user_id"`
 	ExpiryAt  pgtype.Timestamp `json:"expiry_at"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 }
 
 type User struct {
-	ID        pgtype.UUID      `json:"id"`
+	ID        uuid.UUID        `json:"id"`
 	Email     string           `json:"email"`
 	FirstName string           `json:"first_name"`
 	LastName  string           `json:"last_name"`

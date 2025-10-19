@@ -23,6 +23,9 @@ const (
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) error {
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
+	//
+	//	--- User Routes ---
+	//
 	registerPath := "POST /api/v1/user/register"
 	mux.Handle(registerPath, HandleJSON(registerController(logger.With("route", registerPath), services.User)))
 
@@ -34,7 +37,72 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 
 	mePath := "GET /api/v1/user/me"
 	meAuth := AuthMiddleware(logger.With("route", mePath), services.User)
-	mux.Handle(mePath, meAuth(meController()))
+	mux.Handle(mePath, meAuth(meController())) // todo rename to handler
+
+	//
+	//	--- IGA Routes ---
+	//
+	getIGAPath := "GET /api/v1/iga"
+	getIGALogger := logger.With("route", getIGAPath)
+	getIGAAuth := AuthMiddleware(getIGALogger, services.User)
+	mux.Handle(getIGAPath, getIGAAuth(getIGAHandler(getIGALogger, services.IGA)))
+
+	/*createIGAPath := "POST /api/v1/iga"
+	createIGALogger := logger.With("route", createIGAPath)
+	createIGAAuth := AuthMiddleware(createIGALogger, services.User)
+	mux.Handle(createIGAPath, createIGAAuth(HandleJSON(createIGAController(createIGALogger, services.IGA))))
+
+	getIGAMetaPath := "GET /api/v1/iga/{id}"
+	getIGAMetaLogger := logger.With("route", getIGAMetaPath)
+	getIGAMetaAuth := AuthMiddleware(getIGAMetaLogger, services.User)
+	mux.Handle(getIGAMetaPath, getIGAMetaAuth(getIGAMetaHandler(getIGAMetaLogger, services.IGA)))
+
+	patchIGAMetaPath := "PATCH /api/v1/iga/{id}"
+	patchIGAMetaLogger := logger.With("route", patchIGAMetaPath)
+	patchIGAMetaAuth := AuthMiddleware(patchIGAMetaLogger, services.User)
+	mux.Handle(patchIGAMetaPath, patchIGAMetaAuth(HandleJSON(patchIGAMetaController(patchIGAMetaLogger, services.IGA))))
+
+	//
+	// --- IGA Chat Routes ---
+	//
+	getChatPath := "GET /api/v1/iga/{id}/chat"
+	getChatLogger := logger.With("route", getChatPath)
+	getChatAuth := AuthMiddleware(getChatLogger, services.User)
+	mux.Handle(getChatPath, getChatAuth(getChatHandler(getChatLogger, services.IGA)))
+
+	sendChatPath := "POST /api/v1/iga/{id}/chat"
+	sendChatLogger := logger.With("route", sendChatPath)
+	sendChatAuth := AuthMiddleware(sendChatLogger, services.User)
+	mux.Handle(sendChatPath, sendChatAuth(HandleJSON(sendChatController(sendChatLogger, services.IGA))))
+
+	// retries/regenerates the latest message with potentially varying content (POST /api/v1/iga/{id}/chat/retry)
+	retryChatPath := "POST /api/v1/iga/{id}/chat/retry"
+	retryChatLogger := logger.With("route", retryChatPath)
+	retryChatAuth := AuthMiddleware(retryChatLogger, services.User)
+	mux.Handle(retryChatPath, retryChatAuth(HandleJSON(retryChatController(retryChatLogger, services.IGA))))
+
+	//
+	// --- IGA Questionnaire Routes ---
+	//
+	getQuestionsPath := "GET /api/v1/iga/{id}/questions"
+	getQuestionsLogger := logger.With("route", getQuestionsPath)
+	getQuestionsAuth := AuthMiddleware(getQuestionsLogger, services.User)
+	mux.Handle(getQuestionsPath, getQuestionsAuth(getQuestionsHandler(getQuestionsLogger, services.IGA)))
+
+	postQuestionPath := "POST /api/v1/iga/{id}/questions"
+	postQuestionLogger := logger.With("route", postQuestionPath)
+	postQuestionAuth := AuthMiddleware(postQuestionLogger, services.User)
+	mux.Handle(postQuestionPath, postQuestionAuth(HandleJSON(postQuestionController(postQuestionLogger, services.IGA))))
+
+	patchQuestionPath := "PATCH /api/v1/iga/{id}/questions/{qid}"
+	patchQuestionLogger := logger.With("route", patchQuestionPath)
+	patchQuestionAuth := AuthMiddleware(patchQuestionLogger, services.User)
+	mux.Handle(patchQuestionPath, patchQuestionAuth(HandleJSON(patchQuestionController(patchQuestionLogger, services.IGA))))
+
+	deleteQuestionPath := "DELETE /api/v1/iga/{id}/questions/{qid}"
+	deleteQuestionLogger := logger.With("route", deleteQuestionPath)
+	deleteQuestionAuth := AuthMiddleware(deleteQuestionLogger, services.User)
+	mux.Handle(deleteQuestionPath, deleteQuestionAuth(deleteQuestionHandler(deleteQuestionLogger, services.IGA)))*/
 
 	return nil
 }
@@ -166,7 +234,7 @@ func logoutController(logger *slog.Logger, service *UserService) ControllerLogic
 			return nil, 0, NewMalformedRequestError()
 		}
 
-		if err := service.Logout(r.Context(), sessionID.String()); err != nil {
+		if err := service.Logout(r.Context(), sessionID); err != nil {
 			logger.Error("could not logout user", "err", err)
 			return nil, 0, NewInternalError()
 		}
@@ -203,5 +271,27 @@ func meController() http.Handler {
 		if err := EncodeJSON(w, http.StatusOK, res); err != nil {
 			WriteJSONError(w, NewInternalError())
 		}
+	})
+}
+
+type getIGAResponse []struct {
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	ProjectName string    `json:"project_name"`
+	ContextData struct {
+		StakeholderSummary string `json:"stakeholder_summary"`
+		ProjectSummary     string `json:"project_summary"`
+		InterviewGoal      string `json:"interview_goal"`
+		InterviewAdvice    string `json:"interview_advice"`
+	} `json:"context_data"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func getIGAHandler(logger *slog.Logger, service *IGAService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
+		sessions, err := service.SessionsByUser(ctx, user.ID)
 	})
 }
