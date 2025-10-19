@@ -49,9 +49,11 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 		}
 
 		var systemMetadata types.IGASessionSystemMetadata
-		errSystemMetadata := json.Unmarshal(session.SystemMetadata, &systemMetadata)
-		if errSystemMetadata != nil {
-			err = errors.Join(err, fmt.Errorf("%w: %s", errSystemMetadata, session.SystemMetadata))
+		if len(session.SystemMetadata) > 0 {
+			errSystemMetadata := json.Unmarshal(session.SystemMetadata, &systemMetadata)
+			if errSystemMetadata != nil {
+				err = errors.Join(err, fmt.Errorf("%w: %s", errSystemMetadata, session.SystemMetadata))
+			}
 		}
 
 		igaSessions[key] = types.IGASession{
@@ -64,4 +66,6 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 			UpdatedAt:      session.UpdatedAt.Time,
 		}
 	}
+
+	return igaSessions, err
 }
