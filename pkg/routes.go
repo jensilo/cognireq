@@ -47,7 +47,7 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	getIGAAuth := AuthMiddleware(getIGALogger, services.User)
 	mux.Handle(getIGAPath, getIGAAuth(getIGAHandler(getIGALogger, services.IGA)))
 
-	/*createIGAPath := "POST /api/v1/iga"
+	createIGAPath := "POST /api/v1/iga"
 	createIGALogger := logger.With("route", createIGAPath)
 	createIGAAuth := AuthMiddleware(createIGALogger, services.User)
 	mux.Handle(createIGAPath, createIGAAuth(HandleJSON(createIGAController(createIGALogger, services.IGA))))
@@ -102,7 +102,7 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	deleteQuestionPath := "DELETE /api/v1/iga/{id}/questions/{qid}"
 	deleteQuestionLogger := logger.With("route", deleteQuestionPath)
 	deleteQuestionAuth := AuthMiddleware(deleteQuestionLogger, services.User)
-	mux.Handle(deleteQuestionPath, deleteQuestionAuth(deleteQuestionHandler(deleteQuestionLogger, services.IGA)))*/
+	mux.Handle(deleteQuestionPath, deleteQuestionAuth(deleteQuestionHandler(deleteQuestionLogger, services.IGA)))
 
 	return nil
 }
