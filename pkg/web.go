@@ -23,6 +23,8 @@ const (
 	CodeMalformedRequestError = "MALFORMED_REQUEST_ERROR"
 	CodeValidationError       = "VALIDATION_ERROR"
 	CodeAuthError             = "AUTHORIZATION_ERROR"
+	CodeNotFound              = "NOT_FOUND_ERROR"
+	CodeForbidden             = "FORBIDDEN"
 )
 
 // ControllerLogic represents the core business logic of a controller.
@@ -69,6 +71,20 @@ func NewAuthError() *WebError {
 	return &WebError{
 		Code:   CodeAuthError,
 		Status: http.StatusUnauthorized,
+	}
+}
+
+func NewNotFoundError() *WebError {
+	return &WebError{
+		Code:   CodeNotFound,
+		Status: http.StatusNotFound,
+	}
+}
+
+func NewForbiddenError() *WebError {
+	return &WebError{
+		Code:   CodeForbidden,
+		Status: http.StatusForbidden,
 	}
 }
 
