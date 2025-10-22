@@ -393,10 +393,6 @@ func getIGAMetaHandler(logger *slog.Logger, service *IGAService) http.Handler {
 			WriteJSONError(w, NewNotFoundError())
 			return
 		}
-		if errors.Is(err, ErrMissingPermission) {
-			WriteJSONError(w, NewForbiddenError())
-			return
-		}
 		if err != nil {
 			logger.Error("could not get IGA session", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -446,9 +442,6 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 		session, err := service.PatchSession(ctx, user.ID, id, toUpdate)
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
-		}
-		if errors.Is(err, ErrMissingPermission) {
-			return nil, 0, NewForbiddenError()
 		}
 		if err != nil {
 			logger.Error("could not update IGA session", "err", err)
@@ -511,10 +504,6 @@ func getChatHandler(logger *slog.Logger, service *IGAService) http.Handler {
 			WriteJSONError(w, NewNotFoundError())
 			return
 		}
-		if errors.Is(err, ErrMissingPermission) {
-			WriteJSONError(w, NewForbiddenError())
-			return
-		}
 		if err != nil {
 			logger.Error("could not get chat logs", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -566,9 +555,6 @@ func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogi
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
 		}
-		if errors.Is(err, ErrMissingPermission) {
-			return nil, 0, NewForbiddenError()
-		}
 		if err != nil {
 			logger.Error("could not send message", "err", err)
 			return nil, 0, NewInternalError()
@@ -608,9 +594,6 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 		log, err := service.RetryMessage(ctx, user.ID, id)
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
-		}
-		if errors.Is(err, ErrMissingPermission) {
-			return nil, 0, NewForbiddenError()
 		}
 		if err != nil {
 			logger.Error("could not retry message", "err", err)
@@ -675,10 +658,6 @@ func getQuestionsHandler(logger *slog.Logger, service *IGAService) http.Handler 
 			WriteJSONError(w, NewNotFoundError())
 			return
 		}
-		if errors.Is(err, ErrMissingPermission) {
-			WriteJSONError(w, NewForbiddenError())
-			return
-		}
 		if err != nil {
 			logger.Error("could not get questions", "err", err)
 			WriteJSONError(w, NewInternalError())
@@ -727,9 +706,6 @@ func postQuestionController(logger *slog.Logger, service *IGAService) Controller
 		q, err := service.CreateQuestion(ctx, user.ID, toCreate)
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
-		}
-		if errors.Is(err, ErrMissingPermission) {
-			return nil, 0, NewForbiddenError()
 		}
 		if err != nil {
 			logger.Error("could not create question", "err", err)
@@ -790,9 +766,6 @@ func patchQuestionController(logger *slog.Logger, service *IGAService) Controlle
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
 		}
-		if errors.Is(err, ErrMissingPermission) {
-			return nil, 0, NewForbiddenError()
-		}
 		if err != nil {
 			logger.Error("could not update question", "err", err)
 			return nil, 0, NewInternalError()
@@ -832,10 +805,6 @@ func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handle
 			logger.Error("could not delete question", "err", err)
 			if errors.Is(err, ErrNotFound) {
 				WriteJSONError(w, NewNotFoundError())
-				return
-			}
-			if errors.Is(err, ErrMissingPermission) {
-				WriteJSONError(w, NewForbiddenError())
 				return
 			}
 			WriteJSONError(w, NewInternalError())
