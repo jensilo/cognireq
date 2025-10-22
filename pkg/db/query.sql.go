@@ -12,6 +12,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createIGASession = `-- name: CreateIGASession :one
+INSERT INTO iga_sessions (user_id, project_name, context_data, system_metadata)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
+`
+
+type CreateIGASessionParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ProjectName    string    `json:"project_name"`
+	ContextData    []byte    `json:"context_data"`
+	SystemMetadata []byte    `json:"system_metadata"`
+}
+
+func (q *Queries) CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, createIGASession,
+		arg.UserID,
+		arg.ProjectName,
+		arg.ContextData,
+		arg.SystemMetadata,
+	)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (user_id, expiry_at)
 VALUES ($1, $2) RETURNING id
@@ -76,6 +109,31 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const iGASessionByID = `-- name: IGASessionByID :one
+SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
+WHERE user_id = $1 AND id = $2 LIMIT 1
+`
+
+type IGASessionByIDParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, iGASessionByID, arg.UserID, arg.ID)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const iGASessionsByUser = `-- name: IGASessionsByUser :many
 
 SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
@@ -110,6 +168,46 @@ func (q *Queries) IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]Ig
 		return nil, err
 	}
 	return items, nil
+}
+
+const patchIGASession = `-- name: PatchIGASession :one
+UPDATE iga_sessions
+SET
+    project_name = COALESCE($3, project_name),
+    context_data = COALESCE($4, context_data),
+    system_metadata = COALESCE($5, system_metadata),
+    updated_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND id = $2
+RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
+`
+
+type PatchIGASessionParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ID             uuid.UUID `json:"id"`
+	ProjectName    string    `json:"project_name"`
+	ContextData    []byte    `json:"context_data"`
+	SystemMetadata []byte    `json:"system_metadata"`
+}
+
+func (q *Queries) PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, patchIGASession,
+		arg.UserID,
+		arg.ID,
+		arg.ProjectName,
+		arg.ContextData,
+		arg.SystemMetadata,
+	)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const sessionByUserID = `-- name: SessionByUserID :one

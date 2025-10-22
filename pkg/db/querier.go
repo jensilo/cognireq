@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error)
 	//
 	//  --- User and Session Management ---
@@ -18,10 +19,12 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
+	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
 	//
 	//  --- IGA Session Management ---
 	//
 	IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error)
+	PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error)
 	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UserByEmail(ctx context.Context, email string) (User, error)

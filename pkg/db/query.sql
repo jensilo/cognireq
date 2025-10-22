@@ -43,6 +43,25 @@ SELECT * FROM iga_sessions
 WHERE user_id = $1
 ORDER BY updated_at DESC;
 
+-- name: CreateIGASession :one
+INSERT INTO iga_sessions (user_id, project_name, context_data, system_metadata)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: IGASessionByID :one
+SELECT * FROM iga_sessions
+WHERE user_id = $1 AND id = $2 LIMIT 1;
+
+-- name: PatchIGASession :one
+UPDATE iga_sessions
+SET
+    project_name = COALESCE($3, project_name),
+    context_data = COALESCE($4, context_data),
+    system_metadata = COALESCE($5, system_metadata),
+    updated_at = CURRENT_TIMESTAMP
+WHERE user_id = $1 AND id = $2
+RETURNING *;
+
 --
 --  --- IGA Chat Log Management ---
 --

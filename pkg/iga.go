@@ -12,9 +12,8 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("not found")
-	ErrMissingPermission = errors.New("missing permission")
-	ErrJSONParsing       = errors.New("json parsing error")
+	ErrNotFound    = errors.New("not found")
+	ErrJSONParsing = errors.New("json parsing error")
 )
 
 type IGAService struct {
