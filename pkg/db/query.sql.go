@@ -12,6 +12,75 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createIGAChatLog = `-- name: CreateIGAChatLog :one
+INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)
+VALUES ($1, $2, $3, $4)
+RETURNING id, iga_session_id, role, message_text, metadata, created_at
+`
+
+type CreateIGAChatLogParams struct {
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	Role         string    `json:"role"`
+	MessageText  string    `json:"message_text"`
+	Metadata     []byte    `json:"metadata"`
+}
+
+func (q *Queries) CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error) {
+	row := q.db.QueryRow(ctx, createIGAChatLog,
+		arg.IgaSessionID,
+		arg.Role,
+		arg.MessageText,
+		arg.Metadata,
+	)
+	var i IgaChatLog
+	err := row.Scan(
+		&i.ID,
+		&i.IgaSessionID,
+		&i.Role,
+		&i.MessageText,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createIGAScriptQuestion = `-- name: CreateIGAScriptQuestion :one
+INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata
+`
+
+type CreateIGAScriptQuestionParams struct {
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	ReadableID   string      `json:"readable_id"`
+	QuestionText string      `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    int16       `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+}
+
+func (q *Queries) CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error) {
+	row := q.db.QueryRow(ctx, createIGAScriptQuestion,
+		arg.IgaSessionID,
+		arg.ReadableID,
+		arg.QuestionText,
+		arg.NoteText,
+		arg.SortOrder,
+		arg.Metadata,
+	)
+	var i IgaScriptQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.IgaSessionID,
+		&i.ReadableID,
+		&i.QuestionText,
+		&i.NoteText,
+		&i.SortOrder,
+		&i.Metadata,
+	)
+	return i, err
+}
+
 const createIGASession = `-- name: CreateIGASession :one
 INSERT INTO iga_sessions (user_id, project_name, context_data, system_metadata)
 VALUES ($1, $2, $3, $4)
@@ -107,6 +176,126 @@ DELETE FROM sessions WHERE id = $1
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
+}
+
+const iGAChatLogsBySessionID = `-- name: IGAChatLogsBySessionID :many
+
+SELECT iga_chat_logs.id, iga_session_id, role, message_text, metadata, iga_chat_logs.created_at, iga_sessions.id, user_id, project_name, context_data, system_metadata, iga_sessions.created_at, updated_at FROM iga_chat_logs
+INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $1
+ORDER BY iga_chat_logs.created_at DESC
+`
+
+type IGAChatLogsBySessionIDRow struct {
+	ID             uuid.UUID        `json:"id"`
+	IgaSessionID   uuid.UUID        `json:"iga_session_id"`
+	Role           string           `json:"role"`
+	MessageText    string           `json:"message_text"`
+	Metadata       []byte           `json:"metadata"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	ID_2           uuid.UUID        `json:"id_2"`
+	UserID         uuid.UUID        `json:"user_id"`
+	ProjectName    string           `json:"project_name"`
+	ContextData    []byte           `json:"context_data"`
+	SystemMetadata []byte           `json:"system_metadata"`
+	CreatedAt_2    pgtype.Timestamp `json:"created_at_2"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+}
+
+// --- IGA Chat Log Management ---
+func (q *Queries) IGAChatLogsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAChatLogsBySessionIDRow, error) {
+	rows, err := q.db.Query(ctx, iGAChatLogsBySessionID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IGAChatLogsBySessionIDRow{}
+	for rows.Next() {
+		var i IGAChatLogsBySessionIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IgaSessionID,
+			&i.Role,
+			&i.MessageText,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.ID_2,
+			&i.UserID,
+			&i.ProjectName,
+			&i.ContextData,
+			&i.SystemMetadata,
+			&i.CreatedAt_2,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const iGAScriptQuestionsBySessionID = `-- name: IGAScriptQuestionsBySessionID :many
+
+SELECT iga_script_questions.id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata, iga_sessions.id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $1
+ORDER BY iga_script_questions.sort_order
+`
+
+type IGAScriptQuestionsBySessionIDRow struct {
+	ID             uuid.UUID        `json:"id"`
+	IgaSessionID   uuid.UUID        `json:"iga_session_id"`
+	ReadableID     string           `json:"readable_id"`
+	QuestionText   string           `json:"question_text"`
+	NoteText       pgtype.Text      `json:"note_text"`
+	SortOrder      int16            `json:"sort_order"`
+	Metadata       []byte           `json:"metadata"`
+	ID_2           uuid.UUID        `json:"id_2"`
+	UserID         uuid.UUID        `json:"user_id"`
+	ProjectName    string           `json:"project_name"`
+	ContextData    []byte           `json:"context_data"`
+	SystemMetadata []byte           `json:"system_metadata"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+}
+
+// --- IGA Questions Management ---
+func (q *Queries) IGAScriptQuestionsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAScriptQuestionsBySessionIDRow, error) {
+	rows, err := q.db.Query(ctx, iGAScriptQuestionsBySessionID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IGAScriptQuestionsBySessionIDRow{}
+	for rows.Next() {
+		var i IGAScriptQuestionsBySessionIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IgaSessionID,
+			&i.ReadableID,
+			&i.QuestionText,
+			&i.NoteText,
+			&i.SortOrder,
+			&i.Metadata,
+			&i.ID_2,
+			&i.UserID,
+			&i.ProjectName,
+			&i.ContextData,
+			&i.SystemMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const iGASessionByID = `-- name: IGASessionByID :one
