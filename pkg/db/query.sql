@@ -53,7 +53,7 @@ RETURNING *;
 
 -- name: IGASessionByID :one
 SELECT * FROM iga_sessions
-WHERE user_id = $1 AND id = $2 LIMIT 1;
+WHERE id = $2 AND user_id = $1 LIMIT 1;
 
 -- name: PatchIGASession :one
 UPDATE iga_sessions
@@ -62,7 +62,7 @@ SET
     context_data = COALESCE($4, context_data),
     system_metadata = COALESCE($5, system_metadata),
     updated_at = CURRENT_TIMESTAMP
-WHERE user_id = $1 AND id = $2
+WHERE id = $2 AND user_id = $1
 RETURNING *;
 
 
@@ -72,9 +72,9 @@ RETURNING *;
 
 
 -- name: IGAChatLogsBySessionID :many
-SELECT * FROM iga_chat_logs
+SELECT iga_chat_logs.* FROM iga_chat_logs
 INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
-WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $1
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 ORDER BY iga_chat_logs.created_at DESC;
 
 -- name: CreateIGAChatLog :one
@@ -87,11 +87,10 @@ RETURNING *;
 --- IGA Questions Management ---
 ---
 
-
 -- name: IGAScriptQuestionsBySessionID :many
-SELECT * FROM iga_script_questions
+SELECT iga_script_questions.* FROM iga_script_questions
 INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
-WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $1
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2
 ORDER BY iga_script_questions.sort_order;
 
 -- name: CreateIGAScriptQuestion :one
@@ -100,26 +99,20 @@ VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: PatchIGAScriptQuestion :one
-WITH t AS (
-    SELECT t_sess.user_id AS user_id
-    FROM iga_sessions AS t_sess
-    INNER JOIN iga_script_questions AS t_ques ON t_sess.id = t_ques.iga_session_id
-)
 UPDATE iga_script_questions
 SET
-    readable_id = COALESCE($3, readable_id),
-    question_text = COALESCE($4, question_text),
-    note_text = COALESCE($5, note_text),
-    sort_order = COALESCE($6, sort_order),
-    metadata = COALESCE($7, metadata)
-WHERE t.user_id = $1 AND iga_session_id = $2
+    readable_id = COALESCE($4, readable_id),
+    question_text = COALESCE($5, question_text),
+    note_text = COALESCE($6, note_text),
+    sort_order = COALESCE($7, sort_order),
+    metadata = COALESCE($8, metadata)
+WHERE
+    iga_script_questions.id = $3 AND iga_session_id = $2
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1)
 RETURNING *;
 
 -- name: DeleteIGAScriptQuestion :exec
-WITH t AS (
-    SELECT t_sess.user_id AS user_id
-    FROM iga_sessions AS t_sess
-             INNER JOIN iga_script_questions AS t_ques ON t_sess.id = t_ques.iga_session_id
-)
 DELETE FROM iga_script_questions
-WHERE t.user_id = $1 AND id = $2;
+WHERE
+    iga_script_questions.id = $3 AND iga_session_id = $2
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1);

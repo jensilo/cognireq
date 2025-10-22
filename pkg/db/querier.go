@@ -15,25 +15,27 @@ type Querier interface {
 	CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error)
 	CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error)
-	//
-	//  --- User and Session Management ---
-	//
+	//-
+	//- User and Session Management ---
+	//-
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
+	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
-	//
-	//  --- IGA Chat Log Management ---
-	//
-	IGAChatLogsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAChatLogsBySessionIDRow, error)
-	//
-	//  --- IGA Questions Management ---
-	//
-	IGAScriptQuestionsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAScriptQuestionsBySessionIDRow, error)
+	//-
+	//- IGA Chat Log Management ---
+	//-
+	IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error)
+	//-
+	//- IGA Questions Management ---
+	//-
+	IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error)
 	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
-	//
-	//  --- IGA Session Management ---
-	//
+	//-
+	//- IGA Session Management ---
+	//-
 	IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error)
+	PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScriptQuestionParams) (IgaScriptQuestion, error)
 	PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error)
 	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
