@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error)
+	CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error)
 	CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error)
 	//
@@ -19,6 +21,14 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
+	//
+	//  --- IGA Chat Log Management ---
+	//
+	IGAChatLogsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAChatLogsBySessionIDRow, error)
+	//
+	//  --- IGA Questions Management ---
+	//
+	IGAScriptQuestionsBySessionID(ctx context.Context, userID uuid.UUID) ([]IGAScriptQuestionsBySessionIDRow, error)
 	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
 	//
 	//  --- IGA Session Management ---
