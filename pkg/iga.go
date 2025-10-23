@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -12,8 +11,7 @@ import (
 )
 
 var (
-	ErrNotFound    = errors.New("not found")
-	ErrJSONParsing = errors.New("json parsing error")
+	ErrNotFound = errors.New("not found")
 )
 
 type IGAService struct {
@@ -32,7 +30,7 @@ func (is *IGAService) SessionsByUser(ctx context.Context, userID uuid.UUID) ([]t
 
 	igaSessions, err := intoIGASessions(sessions)
 	if err != nil {
-		return nil, errors.Join(ErrJSONParsing, err)
+		return nil, err
 	}
 
 	return igaSessions, nil
@@ -43,15 +41,15 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 	var err error
 
 	for i, session := range sessions {
-		var contextData types.IGASessionContextData
-		errContextData := json.Unmarshal(session.ContextData, &contextData)
+		contextData, errContextData := types.IntoIGASessionContextData(session.ContextData)
 		if errContextData != nil {
 			err = errors.Join(err, fmt.Errorf("%w: %s", errContextData, session.ContextData))
 		}
 
 		var systemMetadata types.IGASessionSystemMetadata
 		if len(session.SystemMetadata) > 0 {
-			errSystemMetadata := json.Unmarshal(session.SystemMetadata, &systemMetadata)
+			var errSystemMetadata error
+			systemMetadata, errSystemMetadata = types.IntoIGASessionSystemMetadata(session.SystemMetadata)
 			if errSystemMetadata != nil {
 				err = errors.Join(err, fmt.Errorf("%w: %s", errSystemMetadata, session.SystemMetadata))
 			}
@@ -72,7 +70,43 @@ func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
 }
 
 func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessionToCreate) (*types.IGASession, error) {
-	return nil, nil
+	contextDataJSON, err := toCreate.ContextData.JSON()
+	if err != nil {
+		return nil, err
+	}
+	systemMetadataJSON, err := toCreate.SystemMetadata.JSON()
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := is.queries.CreateIGASession(ctx, db.CreateIGASessionParams{
+		UserID:         toCreate.UserID,
+		ProjectName:    toCreate.ProjectName,
+		ContextData:    contextDataJSON,
+		SystemMetadata: systemMetadataJSON,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	contextData, err := types.IntoIGASessionContextData(session.ContextData)
+	if err != nil {
+		return nil, err
+	}
+	systemMetadata, err := types.IntoIGASessionSystemMetadata(session.SystemMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.IGASession{
+		ID:             session.ID,
+		UserID:         session.UserID,
+		ProjectName:    session.ProjectName,
+		ContextData:    contextData,
+		SystemMetadata: systemMetadata,
+		CreatedAt:      session.CreatedAt.Time,
+		UpdatedAt:      session.CreatedAt.Time,
+	}, nil
 }
 
 func (is *IGAService) SessionByID(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGASession, error) {
