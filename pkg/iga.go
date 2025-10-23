@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jensilo/cognireq/pkg/db"
 	"github.com/jensilo/cognireq/pkg/types"
 )
@@ -36,37 +37,42 @@ func (is *IGAService) SessionsByUser(ctx context.Context, userID uuid.UUID) ([]t
 	return igaSessions, nil
 }
 
-func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
-	igaSessions := make([]types.IGASession, len(sessions))
-	var err error
-
-	for i, session := range sessions {
-		contextData, errContextData := types.IntoIGASessionContextData(session.ContextData)
-		if errContextData != nil {
-			err = errors.Join(err, fmt.Errorf("%w: %s", errContextData, session.ContextData))
-		}
-
-		var systemMetadata types.IGASessionSystemMetadata
-		if len(session.SystemMetadata) > 0 {
-			var errSystemMetadata error
-			systemMetadata, errSystemMetadata = types.IntoIGASessionSystemMetadata(session.SystemMetadata)
-			if errSystemMetadata != nil {
-				err = errors.Join(err, fmt.Errorf("%w: %s", errSystemMetadata, session.SystemMetadata))
-			}
-		}
-
-		igaSessions[i] = types.IGASession{
-			ID:             session.ID,
-			UserID:         session.UserID,
-			ProjectName:    session.ProjectName,
-			ContextData:    contextData,
-			SystemMetadata: systemMetadata,
-			CreatedAt:      session.CreatedAt.Time,
-			UpdatedAt:      session.UpdatedAt.Time,
-		}
+func intoIGASession(session db.IgaSession) (types.IGASession, error) {
+	contextData, err := types.IntoIGASessionContextData(session.ContextData)
+	if err != nil {
+		return types.IGASession{}, fmt.Errorf("failed to parse context data for IGA session %s: %w", session.ID, err)
 	}
 
-	return igaSessions, err
+	systemMetadata, err := types.IntoIGASessionSystemMetadata(session.SystemMetadata)
+	if err != nil {
+		return types.IGASession{}, fmt.Errorf("failed to parse system metadata for IGA session %s: %w", session.ID, err)
+	}
+
+	return types.IGASession{
+		ID:             session.ID,
+		UserID:         session.UserID,
+		ProjectName:    session.ProjectName,
+		ContextData:    contextData,
+		SystemMetadata: systemMetadata,
+		CreatedAt:      session.CreatedAt.Time,
+		UpdatedAt:      session.UpdatedAt.Time,
+	}, nil
+}
+
+func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
+	igaSessions := make([]types.IGASession, len(sessions))
+	var allErrors error
+
+	for i, session := range sessions {
+		converted, err := intoIGASession(session)
+		if err != nil {
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+		igaSessions[i] = converted
+	}
+
+	return igaSessions, allErrors
 }
 
 func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessionToCreate) (*types.IGASession, error) {
@@ -110,7 +116,23 @@ func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessi
 }
 
 func (is *IGAService) SessionByID(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGASession, error) {
-	return nil, nil
+	session, err := is.queries.IGASessionByID(ctx, db.IGASessionByIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGASession(session)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.UUID, toUpdate types.IGASessionToUpdate) (*types.IGASession, error) {
