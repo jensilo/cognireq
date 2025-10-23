@@ -1,10 +1,17 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrJSONMarshal   = errors.New("json marshal error")
+	ErrJSONUnmarshal = errors.New("json unmarshal error")
 )
 
 type IGASessionContextData struct {
@@ -14,8 +21,46 @@ type IGASessionContextData struct {
 	InterviewAdvice    string `json:"interview_advice"`
 }
 
+func IntoIGASessionContextData(b []byte) (IGASessionContextData, error) {
+	var d IGASessionContextData
+	err := json.Unmarshal(b, &d)
+	if err != nil {
+		return d, fmt.Errorf("%w: invalid IGASessionContextData JSON: %s", ErrJSONUnmarshal, b)
+	}
+
+	return d, nil
+}
+
+func (d IGASessionContextData) JSON() ([]byte, error) {
+	data, err := json.Marshal(d)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid IGASessionContextData: %+v", ErrJSONMarshal, d)
+	}
+
+	return data, nil
+}
+
 type IGASessionSystemMetadata struct {
 	LLModel string `json:"ll_model"`
+}
+
+func IntoIGASessionSystemMetadata(b []byte) (IGASessionSystemMetadata, error) {
+	var d IGASessionSystemMetadata
+	err := json.Unmarshal(b, &d)
+	if err != nil {
+		return d, fmt.Errorf("%w: invalid IGASessionSystemMetadata JSON: %s", ErrJSONUnmarshal, b)
+	}
+
+	return d, nil
+}
+
+func (m IGASessionSystemMetadata) JSON() ([]byte, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid IGASessionSystemMetadata: %+v", ErrJSONMarshal, m)
+	}
+
+	return data, nil
 }
 
 type IGASession struct {
@@ -42,6 +87,25 @@ type IGASessionToUpdate struct {
 }
 
 type IGAScriptQuestionMetadata struct{}
+
+func IntoIGAScriptQuestionMetadata(b []byte) (IGAScriptQuestionMetadata, error) {
+	var d IGAScriptQuestionMetadata
+	err := json.Unmarshal(b, &d)
+	if err != nil {
+		return d, fmt.Errorf("%w: invalid IGAScriptQuestionMetadata JSON: %s", ErrJSONUnmarshal, b)
+	}
+
+	return d, nil
+}
+
+func (m IGAScriptQuestionMetadata) JSON() ([]byte, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid IGAScriptQuestionMetadata: %+v", ErrJSONMarshal, m)
+	}
+
+	return data, nil
+}
 
 type IGAScriptQuestion struct {
 	ID           uuid.UUID
@@ -89,6 +153,25 @@ func IntoIGAChatLogInstructionType(value string) (IGAChatLogInstructionType, err
 
 type IGAChatLogMetadata struct {
 	Type IGAChatLogInstructionType `json:"type"`
+}
+
+func IntoIGAChatLogMetadata(b []byte) (IGAChatLogMetadata, error) {
+	var d IGAChatLogMetadata
+	err := json.Unmarshal(b, &d)
+	if err != nil {
+		return d, fmt.Errorf("%w: invalid IGAChatLogMetadata JSON: %s", ErrJSONUnmarshal, b)
+	}
+
+	return d, nil
+}
+
+func (m IGAChatLogMetadata) JSON() ([]byte, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid IGAChatLogMetadata: %+v", ErrJSONMarshal, m)
+	}
+
+	return data, nil
 }
 
 type IGAChatLog struct {
