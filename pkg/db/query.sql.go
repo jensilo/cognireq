@@ -14,11 +14,14 @@ import (
 
 const createIGAChatLog = `-- name: CreateIGAChatLog :one
 INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)
-VALUES ($1, $2, $3, $4)
+SELECT $2, $3, $4, $5
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 RETURNING id, iga_session_id, role, message_text, metadata, created_at
 `
 
 type CreateIGAChatLogParams struct {
+	UserID       uuid.UUID `json:"user_id"`
 	IgaSessionID uuid.UUID `json:"iga_session_id"`
 	Role         string    `json:"role"`
 	MessageText  string    `json:"message_text"`
@@ -27,6 +30,7 @@ type CreateIGAChatLogParams struct {
 
 func (q *Queries) CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error) {
 	row := q.db.QueryRow(ctx, createIGAChatLog,
+		arg.UserID,
 		arg.IgaSessionID,
 		arg.Role,
 		arg.MessageText,
@@ -46,11 +50,14 @@ func (q *Queries) CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogPara
 
 const createIGAScriptQuestion = `-- name: CreateIGAScriptQuestion :one
 INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
-VALUES ($1, $2, $3, $4, $5, $6)
+SELECT $2, $3, $4, $5, $6, $7
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 RETURNING id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata
 `
 
 type CreateIGAScriptQuestionParams struct {
+	UserID       uuid.UUID   `json:"user_id"`
 	IgaSessionID uuid.UUID   `json:"iga_session_id"`
 	ReadableID   string      `json:"readable_id"`
 	QuestionText string      `json:"question_text"`
@@ -61,6 +68,7 @@ type CreateIGAScriptQuestionParams struct {
 
 func (q *Queries) CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error) {
 	row := q.db.QueryRow(ctx, createIGAScriptQuestion,
+		arg.UserID,
 		arg.IgaSessionID,
 		arg.ReadableID,
 		arg.QuestionText,
