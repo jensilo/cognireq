@@ -79,7 +79,9 @@ ORDER BY iga_chat_logs.created_at DESC;
 
 -- name: CreateIGAChatLog :one
 INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)
-VALUES ($1, $2, $3, $4)
+SELECT $2, $3, $4, $5
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 RETURNING *;
 
 
@@ -95,7 +97,9 @@ ORDER BY iga_script_questions.sort_order;
 
 -- name: CreateIGAScriptQuestion :one
 INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
-VALUES ($1, $2, $3, $4, $5, $6)
+SELECT $2, $3, $4, $5, $6, $7
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 RETURNING *;
 
 -- name: PatchIGAScriptQuestion :one
