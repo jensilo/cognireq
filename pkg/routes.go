@@ -464,7 +464,7 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 type chatMessageResponse struct {
 	ID           uuid.UUID                `json:"id"`
 	IGASessionID uuid.UUID                `json:"iga_session_id"`
-	Role         string                   `json:"role"`
+	Role         types.IGAChatLogRole     `json:"role"`
 	MessageText  string                   `json:"message_text"`
 	Metadata     types.IGAChatLogMetadata `json:"metadata"`
 	CreatedAt    time.Time                `json:"created_at"`

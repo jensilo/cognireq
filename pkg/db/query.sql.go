@@ -180,7 +180,7 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
-const deleteIGAScriptQuestion = `-- name: DeleteIGAScriptQuestion :exec
+const deleteIGAScriptQuestion = `-- name: DeleteIGAScriptQuestion :execrows
 DELETE FROM iga_script_questions
 WHERE
     iga_script_questions.id = $3 AND iga_session_id = $2
@@ -193,9 +193,12 @@ type DeleteIGAScriptQuestionParams struct {
 	ID           uuid.UUID `json:"id"`
 }
 
-func (q *Queries) DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) error {
-	_, err := q.db.Exec(ctx, deleteIGAScriptQuestion, arg.UserID, arg.IgaSessionID, arg.ID)
-	return err
+func (q *Queries) DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteIGAScriptQuestion, arg.UserID, arg.IgaSessionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteSession = `-- name: DeleteSession :exec

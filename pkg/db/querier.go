@@ -20,7 +20,7 @@ type Querier interface {
 	//-
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
-	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) error
+	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	//-
 	//- IGA Chat Log Management ---
