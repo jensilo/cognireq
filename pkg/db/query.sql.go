@@ -362,38 +362,38 @@ func (q *Queries) IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]Ig
 const patchIGAScriptQuestion = `-- name: PatchIGAScriptQuestion :one
 UPDATE iga_script_questions
 SET
-    readable_id = COALESCE($4, readable_id),
-    question_text = COALESCE($5, question_text),
-    note_text = COALESCE($6, note_text),
-    sort_order = COALESCE($7, sort_order),
-    metadata = COALESCE($8, metadata)
+    readable_id = COALESCE($1, readable_id),
+    question_text = COALESCE($2, question_text),
+    note_text = COALESCE($3, note_text),
+    sort_order = COALESCE($4, sort_order),
+    metadata = COALESCE($5, metadata)
 WHERE
-    iga_script_questions.id = $3 AND iga_session_id = $2
-    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1)
+    iga_script_questions.id = $6 AND iga_session_id = $7
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = $7 AND sess.user_id = $8)
 RETURNING id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata
 `
 
 type PatchIGAScriptQuestionParams struct {
-	UserID       uuid.UUID   `json:"user_id"`
-	IgaSessionID uuid.UUID   `json:"iga_session_id"`
-	ID           uuid.UUID   `json:"id"`
-	ReadableID   string      `json:"readable_id"`
-	QuestionText string      `json:"question_text"`
+	ReadableID   pgtype.Text `json:"readable_id"`
+	QuestionText pgtype.Text `json:"question_text"`
 	NoteText     pgtype.Text `json:"note_text"`
-	SortOrder    int16       `json:"sort_order"`
+	SortOrder    pgtype.Int2 `json:"sort_order"`
 	Metadata     []byte      `json:"metadata"`
+	ID           uuid.UUID   `json:"id"`
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	UserID       uuid.UUID   `json:"user_id"`
 }
 
 func (q *Queries) PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScriptQuestionParams) (IgaScriptQuestion, error) {
 	row := q.db.QueryRow(ctx, patchIGAScriptQuestion,
-		arg.UserID,
-		arg.IgaSessionID,
-		arg.ID,
 		arg.ReadableID,
 		arg.QuestionText,
 		arg.NoteText,
 		arg.SortOrder,
 		arg.Metadata,
+		arg.ID,
+		arg.IgaSessionID,
+		arg.UserID,
 	)
 	var i IgaScriptQuestion
 	err := row.Scan(
@@ -411,29 +411,29 @@ func (q *Queries) PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScript
 const patchIGASession = `-- name: PatchIGASession :one
 UPDATE iga_sessions
 SET
-    project_name = COALESCE($3, project_name),
-    context_data = COALESCE($4, context_data),
-    system_metadata = COALESCE($5, system_metadata),
+    project_name = COALESCE($1, project_name),
+    context_data = COALESCE($2, context_data),
+    system_metadata = COALESCE($3, system_metadata),
     updated_at = CURRENT_TIMESTAMP
-WHERE id = $2 AND user_id = $1
+WHERE id = $4 AND user_id = $5
 RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
 `
 
 type PatchIGASessionParams struct {
-	UserID         uuid.UUID `json:"user_id"`
-	ID             uuid.UUID `json:"id"`
-	ProjectName    string    `json:"project_name"`
-	ContextData    []byte    `json:"context_data"`
-	SystemMetadata []byte    `json:"system_metadata"`
+	ProjectName    pgtype.Text `json:"project_name"`
+	ContextData    []byte      `json:"context_data"`
+	SystemMetadata []byte      `json:"system_metadata"`
+	ID             uuid.UUID   `json:"id"`
+	UserID         uuid.UUID   `json:"user_id"`
 }
 
 func (q *Queries) PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error) {
 	row := q.db.QueryRow(ctx, patchIGASession,
-		arg.UserID,
-		arg.ID,
 		arg.ProjectName,
 		arg.ContextData,
 		arg.SystemMetadata,
+		arg.ID,
+		arg.UserID,
 	)
 	var i IgaSession
 	err := row.Scan(

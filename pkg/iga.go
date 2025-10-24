@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jensilo/cognireq/pkg/db"
 	"github.com/jensilo/cognireq/pkg/types"
 )
@@ -136,7 +137,45 @@ func (is *IGAService) SessionByID(ctx context.Context, userID, sessionID uuid.UU
 }
 
 func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.UUID, toUpdate types.IGASessionToUpdate) (*types.IGASession, error) {
-	return nil, nil
+	params := db.PatchIGASessionParams{
+		UserID: userID,
+		ID:     sessionID,
+	}
+
+	if toUpdate.ProjectName != nil {
+		params.ProjectName = pgtype.Text{String: *toUpdate.ProjectName, Valid: true}
+	}
+
+	if toUpdate.ContextData != nil {
+		jsonData, err := toUpdate.ContextData.JSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal context data: %w", err)
+		}
+		params.ContextData = jsonData
+	}
+
+	if toUpdate.SystemMetadata != nil {
+		jsonData, err := toUpdate.SystemMetadata.JSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal system metadata: %w", err)
+		}
+		params.SystemMetadata = jsonData
+	}
+
+	updatedSession, err := is.queries.PatchIGASession(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGASession(updatedSession)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) ChatLogBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
