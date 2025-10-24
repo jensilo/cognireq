@@ -4,12 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jensilo/cognireq/pkg/db"
 	"github.com/jensilo/cognireq/pkg/types"
+)
+
+const (
+	readableIDChars      = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	readableIDLength     = 3
+	readableIDFormat     = "Q-%s"
+	maxReadableIDRetries = 10
 )
 
 var (
@@ -365,8 +374,67 @@ func intoIGAScriptQuestions(questions []db.IgaScriptQuestion) ([]types.IGAScript
 	return scriptQuestions, allErrors
 }
 
+func (is *IGAService) generateUniqueReadableID(ctx context.Context, sessionID uuid.UUID) (string, error) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for i := 0; i < maxReadableIDRetries; i++ {
+		b := make([]byte, readableIDLength)
+		for j := range b {
+			b[j] = readableIDChars[r.Intn(len(readableIDChars))]
+		}
+		id := fmt.Sprintf(readableIDFormat, string(b))
+
+		exists, err := is.queries.IGAScriptQuestionExistsByReadableID(ctx, db.IGAScriptQuestionExistsByReadableIDParams{
+			IgaSessionID: sessionID,
+			ReadableID:   id,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to check for existing readable ID: %w", err)
+		}
+
+		if !exists {
+			return id, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to generate unique readable ID after %d retries", maxReadableIDRetries)
+}
+
 func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCreate types.IGAScriptQuestionToCreate) (*types.IGAScriptQuestion, error) {
-	return nil, nil
+	readableID, err := is.generateUniqueReadableID(ctx, toCreate.IGASessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	metadataJSON, err := toCreate.Metadata.JSON()
+	if err != nil {
+		return nil, err
+	}
+
+	params := db.CreateIGAScriptQuestionParams{
+		UserID:       userID,
+		IgaSessionID: toCreate.IGASessionID,
+		ReadableID:   readableID,
+		QuestionText: toCreate.QuestionText,
+		NoteText:     pgtype.Text{String: toCreate.NoteText, Valid: toCreate.NoteText != ""},
+		SortOrder:    toCreate.SortOrder,
+		Metadata:     metadataJSON,
+	}
+
+	question, err := is.queries.CreateIGAScriptQuestion(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGAScriptQuestion(question)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {

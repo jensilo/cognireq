@@ -251,6 +251,25 @@ func (q *Queries) IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsByS
 	return items, nil
 }
 
+const iGAScriptQuestionExistsByReadableID = `-- name: IGAScriptQuestionExistsByReadableID :one
+SELECT EXISTS(
+    SELECT 1 FROM iga_script_questions
+    WHERE iga_session_id = $1 AND readable_id = $2
+)
+`
+
+type IGAScriptQuestionExistsByReadableIDParams struct {
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	ReadableID   string    `json:"readable_id"`
+}
+
+func (q *Queries) IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error) {
+	row := q.db.QueryRow(ctx, iGAScriptQuestionExistsByReadableID, arg.IgaSessionID, arg.ReadableID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const iGAScriptQuestionsBySessionID = `-- name: IGAScriptQuestionsBySessionID :many
 
 SELECT iga_script_questions.id, iga_script_questions.iga_session_id, iga_script_questions.readable_id, iga_script_questions.question_text, iga_script_questions.note_text, iga_script_questions.sort_order, iga_script_questions.metadata FROM iga_script_questions
