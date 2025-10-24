@@ -179,7 +179,48 @@ func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.U
 }
 
 func (is *IGAService) ChatLogBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
-	return nil, nil
+	logs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return intoIGAChatLogs(logs)
+}
+
+func intoIGAChatLog(log db.IgaChatLog) (types.IGAChatLog, error) {
+	metadata, err := types.IntoIGAChatLogMetadata(log.Metadata)
+	if err != nil {
+		return types.IGAChatLog{}, fmt.Errorf("failed to parse metadata for chat log %s: %w", log.ID, err)
+	}
+
+	return types.IGAChatLog{
+			ID:           log.ID,
+			IGASessionID: log.IgaSessionID,
+			Role:         log.Role,
+			MessageText:  log.MessageText,
+			Metadata:     metadata,
+			CreatedAt:    log.CreatedAt.Time,
+		},
+		nil
+}
+
+func intoIGAChatLogs(logs []db.IgaChatLog) ([]types.IGAChatLog, error) {
+	chatLogs := make([]types.IGAChatLog, len(logs))
+	var allErrors error
+
+	for i, log := range logs {
+		converted, err := intoIGAChatLog(log)
+		if err != nil {
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+		chatLogs[i] = converted
+	}
+
+	return chatLogs, allErrors
 }
 
 func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
