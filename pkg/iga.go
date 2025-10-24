@@ -478,5 +478,18 @@ func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, ques
 }
 
 func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID) error {
+	rowsAffected, err := is.queries.DeleteIGAScriptQuestion(ctx, db.DeleteIGAScriptQuestionParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		ID:           questionID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
 	return nil
 }

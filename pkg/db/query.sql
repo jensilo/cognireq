@@ -121,7 +121,7 @@ WHERE
     AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = sqlc.arg('iga_session_id') AND sess.user_id = sqlc.arg('user_id'))
 RETURNING *;
 
--- name: DeleteIGAScriptQuestion :exec
+-- name: DeleteIGAScriptQuestion :execrows
 DELETE FROM iga_script_questions
 WHERE
     iga_script_questions.id = $3 AND iga_session_id = $2
