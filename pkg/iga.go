@@ -316,7 +316,53 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 }
 
 func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
-	return nil, nil
+	questions, err := is.queries.IGAScriptQuestionsBySessionID(ctx, db.IGAScriptQuestionsBySessionIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return intoIGAScriptQuestions(questions)
+}
+
+func intoIGAScriptQuestion(q db.IgaScriptQuestion) (types.IGAScriptQuestion, error) {
+	metadata, err := types.IntoIGAScriptQuestionMetadata(q.Metadata)
+	if err != nil {
+		return types.IGAScriptQuestion{}, fmt.Errorf("failed to parse metadata for script question %s: %w", q.ID, err)
+	}
+
+	var noteText string
+	if q.NoteText.Valid {
+		noteText = q.NoteText.String
+	}
+
+	return types.IGAScriptQuestion{
+		ID:           q.ID,
+		IGASessionID: q.IgaSessionID,
+		ReadableID:   q.ReadableID,
+		QuestionText: q.QuestionText,
+		NoteText:     noteText,
+		SortOrder:    q.SortOrder,
+		Metadata:     metadata,
+	}, nil
+}
+
+func intoIGAScriptQuestions(questions []db.IgaScriptQuestion) ([]types.IGAScriptQuestion, error) {
+	scriptQuestions := make([]types.IGAScriptQuestion, len(questions))
+	var allErrors error
+
+	for i, q := range questions {
+		converted, err := intoIGAScriptQuestion(q)
+		if err != nil {
+			allErrors = errors.Join(allErrors, err)
+			continue
+		}
+		scriptQuestions[i] = converted
+	}
+
+	return scriptQuestions, allErrors
 }
 
 func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCreate types.IGAScriptQuestionToCreate) (*types.IGAScriptQuestion, error) {
