@@ -438,7 +438,43 @@ func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCr
 }
 
 func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {
-	return nil, nil
+	params := db.PatchIGAScriptQuestionParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		ID:           questionID,
+	}
+
+	if toUpdate.QuestionText != nil {
+		params.QuestionText = pgtype.Text{String: *toUpdate.QuestionText, Valid: true}
+	}
+	if toUpdate.NoteText != nil {
+		params.NoteText = pgtype.Text{String: *toUpdate.NoteText, Valid: true}
+	}
+	if toUpdate.SortOrder != nil {
+		params.SortOrder = pgtype.Int2{Int16: *toUpdate.SortOrder, Valid: true}
+	}
+	if toUpdate.Metadata != nil {
+		jsonData, err := toUpdate.Metadata.JSON()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal question metadata: %w", err)
+		}
+		params.Metadata = jsonData
+	}
+
+	question, err := is.queries.PatchIGAScriptQuestion(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGAScriptQuestion(question)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID) error {
