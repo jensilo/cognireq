@@ -26,6 +26,7 @@ type Querier interface {
 	//- IGA Chat Log Management ---
 	//-
 	IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error)
+	IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error)
 	//-
 	//- IGA Questions Management ---
 	//-

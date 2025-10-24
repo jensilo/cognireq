@@ -102,6 +102,12 @@ FROM iga_sessions
 WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
 RETURNING *;
 
+-- name: IGAScriptQuestionExistsByReadableID :one
+SELECT EXISTS(
+    SELECT 1 FROM iga_script_questions
+    WHERE iga_session_id = $1 AND readable_id = $2
+);
+
 -- name: PatchIGAScriptQuestion :one
 UPDATE iga_script_questions
 SET
