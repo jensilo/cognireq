@@ -174,10 +174,27 @@ func (m IGAChatLogMetadata) JSON() ([]byte, error) {
 	return data, nil
 }
 
+type IGAChatLogRole string
+
+const (
+	IGAChatLogRoleUser      IGAChatLogRole = "user"
+	IGAChatLogRoleAssistant IGAChatLogRole = "assistant"
+)
+
+func IntoIGAChatLogRole(value string) (IGAChatLogRole, error) {
+	switch value {
+	case string(IGAChatLogRoleUser),
+		string(IGAChatLogRoleAssistant):
+		return IGAChatLogRole(value), nil
+	default:
+		return "", errors.New("invalid chat role")
+	}
+}
+
 type IGAChatLog struct {
 	ID           uuid.UUID
 	IGASessionID uuid.UUID
-	Role         string
+	Role         IGAChatLogRole
 	MessageText  string
 	Metadata     IGAChatLogMetadata
 	CreatedAt    time.Time

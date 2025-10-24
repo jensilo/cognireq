@@ -149,7 +149,7 @@ func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.U
 	if toUpdate.ContextData != nil {
 		jsonData, err := toUpdate.ContextData.JSON()
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal context data: %w", err)
+			return nil, err
 		}
 		params.ContextData = jsonData
 	}
@@ -157,7 +157,7 @@ func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.U
 	if toUpdate.SystemMetadata != nil {
 		jsonData, err := toUpdate.SystemMetadata.JSON()
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal system metadata: %w", err)
+			return nil, err
 		}
 		params.SystemMetadata = jsonData
 	}
@@ -196,10 +196,15 @@ func intoIGAChatLog(log db.IgaChatLog) (types.IGAChatLog, error) {
 		return types.IGAChatLog{}, fmt.Errorf("failed to parse metadata for chat log %s: %w", log.ID, err)
 	}
 
+	role, err := types.IntoIGAChatLogRole(log.Role)
+	if err != nil {
+		return types.IGAChatLog{}, fmt.Errorf("invalid chat log role %s: %w", log.Role, err)
+	}
+
 	return types.IGAChatLog{
 			ID:           log.ID,
 			IGASessionID: log.IgaSessionID,
-			Role:         log.Role,
+			Role:         role,
 			MessageText:  log.MessageText,
 			Metadata:     metadata,
 			CreatedAt:    log.CreatedAt.Time,
@@ -224,11 +229,90 @@ func intoIGAChatLogs(logs []db.IgaChatLog) ([]types.IGAChatLog, error) {
 }
 
 func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
-	return nil, nil
+	userMetadataJSON, err := messageMetaData.JSON()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		Role:         string(types.IGAChatLogRoleUser),
+		MessageText:  messageText,
+		Metadata:     userMetadataJSON,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: NLP integration to process the message and generate a response.
+	//  - Fetch conversation history.
+	//  - Call NLP service.
+	//  - For now, we'll just create a stubbed response.
+
+	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		Role:         string(types.IGAChatLogRoleAssistant),
+		MessageText:  "This is a stubbed response.",
+	})
+	// 2nd should not fail
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGAChatLog(assistantLog)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGAChatLog, error) {
-	return nil, nil
+	logs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(logs) == 0 {
+		return nil, fmt.Errorf("no message found to retry")
+	}
+
+	// TODO: NLP integration to regenerate the last response.
+	//  potentially delete previous "assistant" response, however if there is no "assistant" message the previous might
+	//  have been interrupted prematurely.
+	//  - The history to send to the model would be `logs[1:]` or `logs` (excluding the last assistant message if available).
+	//  - For now, we'll just create a new stubbed response.
+
+	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		Role:         string(types.IGAChatLogRoleAssistant),
+		MessageText:  "This is a stubbed *retry* response.",
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGAChatLog(assistantLog)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
 }
 
 func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
