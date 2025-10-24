@@ -58,11 +58,11 @@ WHERE id = $2 AND user_id = $1 LIMIT 1;
 -- name: PatchIGASession :one
 UPDATE iga_sessions
 SET
-    project_name = COALESCE($3, project_name),
-    context_data = COALESCE($4, context_data),
-    system_metadata = COALESCE($5, system_metadata),
+    project_name = COALESCE(sqlc.narg('project_name'), project_name),
+    context_data = COALESCE(sqlc.narg('context_data'), context_data),
+    system_metadata = COALESCE(sqlc.narg('system_metadata'), system_metadata),
     updated_at = CURRENT_TIMESTAMP
-WHERE id = $2 AND user_id = $1
+WHERE id = sqlc.arg('id') AND user_id = sqlc.arg('user_id')
 RETURNING *;
 
 
@@ -105,14 +105,14 @@ RETURNING *;
 -- name: PatchIGAScriptQuestion :one
 UPDATE iga_script_questions
 SET
-    readable_id = COALESCE($4, readable_id),
-    question_text = COALESCE($5, question_text),
-    note_text = COALESCE($6, note_text),
-    sort_order = COALESCE($7, sort_order),
-    metadata = COALESCE($8, metadata)
+    readable_id = COALESCE(sqlc.narg('readable_id'), readable_id),
+    question_text = COALESCE(sqlc.narg('question_text'), question_text),
+    note_text = COALESCE(sqlc.narg('note_text'), note_text),
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    metadata = COALESCE(sqlc.narg('metadata'), metadata)
 WHERE
-    iga_script_questions.id = $3 AND iga_session_id = $2
-    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1)
+    iga_script_questions.id = sqlc.arg('id') AND iga_session_id = sqlc.arg('iga_session_id')
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = sqlc.arg('iga_session_id') AND sess.user_id = sqlc.arg('user_id'))
 RETURNING *;
 
 -- name: DeleteIGAScriptQuestion :exec
