@@ -237,6 +237,44 @@ func intoIGAChatLogs(logs []db.IgaChatLog) ([]types.IGAChatLog, error) {
 	return chatLogs, allErrors
 }
 
+func (is *IGAService) CreateMessage(
+	ctx context.Context,
+	userID, sessionID uuid.UUID,
+	messageText string,
+	role types.IGAChatLogRole,
+	messageMetadata *types.IGAChatLogMetadata,
+) (*types.IGAChatLog, error) {
+	params := db.CreateIGAChatLogParams{
+		UserID:       userID,
+		IgaSessionID: sessionID,
+		Role:         string(role),
+		MessageText:  messageText,
+	}
+
+	if messageMetadata != nil {
+		metadataJSON, err := messageMetadata.JSON()
+		if err != nil {
+			return nil, err
+		}
+		params.Metadata = metadataJSON
+	}
+
+	log, err := is.queries.CreateIGAChatLog(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	converted, err := intoIGAChatLog(log)
+	if err != nil {
+		return nil, err
+	}
+
+	return &converted, nil
+}
+
 func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
 	userMetadataJSON, err := messageMetaData.JSON()
 	if err != nil {
