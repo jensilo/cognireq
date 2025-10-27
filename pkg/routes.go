@@ -500,6 +500,7 @@ func getChatHandler(logger *slog.Logger, service *IGAService) http.Handler {
 		}
 
 		// todo fix: not found is just empty chat logs, should be NOT FOUND error
+		//  same goes for FORBIDDEN -> /not found in a way!
 
 		logs, err := service.ChatLogBySessionID(ctx, user.ID, id)
 		if errors.Is(err, ErrNotFound) {
