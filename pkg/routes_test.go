@@ -3,6 +3,7 @@ package pkg
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -141,6 +142,20 @@ func (ts *testServer) createTestQuestion(t *testing.T, userID, sessionID uuid.UU
 	require.NotNil(t, question)
 
 	return question
+}
+
+func (ts *testServer) createTestChatLog(t *testing.T, userID, sessionID uuid.UUID, messageText string, role types.IGAChatLogRole) *types.IGAChatLog {
+	t.Helper()
+
+	var metadata *types.IGAChatLogMetadata
+	if role == types.IGAChatLogRoleUser {
+		metadata = &types.IGAChatLogMetadata{Type: types.IGAChatLogInstructionMessage}
+	}
+	chatLog, err := ts.iga.CreateMessage(t.Context(), userID, sessionID, messageText, role, metadata)
+	require.NoError(t, err)
+	require.NotNil(t, chatLog)
+
+	return chatLog
 }
 
 func TestPing(t *testing.T) {
@@ -455,5 +470,88 @@ func TestPatchIGASession(t *testing.T) {
 
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 		t.Log("Not Found", res.StatusCode)
+	})
+}
+
+func TestGetChatLog(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty chat log", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session Empty")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var chatLogs getChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatLogs)
+		require.NoError(t, err)
+		assert.Len(t, chatLogs, 0)
+	})
+
+	t.Run("populated chat log", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session Populated")
+		ts.createTestChatLog(t, ts.authedUser.ID, session.ID, "Hello", types.IGAChatLogRoleUser)
+		ts.createTestChatLog(t, ts.authedUser.ID, session.ID, "Hi there!", types.IGAChatLogRoleAssistant)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var chatLogs getChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatLogs)
+		require.NoError(t, err)
+		assert.Len(t, chatLogs, 2)
+		assert.Equal(t, APIIgaChatLogRole("assistant"), chatLogs[0].Role)
+		assert.Equal(t, "Hi there!", chatLogs[0].MessageText)
+		assert.Equal(t, APIIgaChatLogRole("user"), chatLogs[1].Role)
+		assert.Equal(t, "Hello", chatLogs[1].MessageText)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/chat", uuid.NewString()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+	})
+
+	t.Run("forbidden", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User Chat Session")
+
+		intruder := ts.createTestUser(t, "intruder3@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodGet, ts.server.URL+"/api/v1/iga/"+otherUserSession.ID.String()+"/chat", nil)
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	})
 }
