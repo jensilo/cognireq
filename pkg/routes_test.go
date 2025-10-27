@@ -184,7 +184,7 @@ func TestRegister(t *testing.T) {
 	})
 	require.NoError(t, err, "could not marshal json payload")
 
-	req, err := http.NewRequest(http.MethodPost, ts.server.URL+"/api/v1/user/register", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/register"), bytes.NewReader(payload))
 	require.NoError(t, err)
 
 	res, err := ts.server.Client().Do(req)
@@ -297,7 +297,7 @@ func TestGetIGASession(t *testing.T) {
 
 		createdSession := ts.createTestSession(t, ts.authedUser.ID, "Get Me")
 
-		req := ts.newAuthenticatedRequest(t, http.MethodGet, "/api/v1/iga/"+createdSession.ID.String(), nil)
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s", createdSession.ID.String()), nil)
 		res, err := ts.server.Client().Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
@@ -317,7 +317,7 @@ func TestGetIGASession(t *testing.T) {
 		t.Parallel()
 		ts := newTestServer(t)
 
-		req := ts.newAuthenticatedRequest(t, http.MethodGet, "/api/v1/iga/"+uuid.NewString(), nil)
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s", uuid.NewString()), nil)
 		res, err := ts.server.Client().Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
@@ -338,7 +338,7 @@ func TestGetIGASession(t *testing.T) {
 		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodGet, ts.server.URL+"/api/v1/iga/"+otherUserSession.ID.String(), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/iga/%s", ts.server.URL, otherUserSession.ID.String()), nil)
 		require.NoError(t, err)
 		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
 
@@ -366,7 +366,7 @@ func TestPatchIGASession(t *testing.T) {
 		payloadJSON, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := ts.newAuthenticatedRequest(t, http.MethodPatch, "/api/v1/iga/"+createdSession.ID.String(), payloadJSON)
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s", createdSession.ID.String()), payloadJSON)
 		req.Header.Set("Content-Type", "application/json")
 
 		res, err := ts.server.Client().Do(req)
@@ -402,7 +402,7 @@ func TestPatchIGASession(t *testing.T) {
 		payloadJSON, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := ts.newAuthenticatedRequest(t, http.MethodPatch, "/api/v1/iga/"+createdSession.ID.String(), payloadJSON)
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s", createdSession.ID.String()), payloadJSON)
 		req.Header.Set("Content-Type", "application/json")
 
 		res, err := ts.server.Client().Do(req)
@@ -418,7 +418,6 @@ func TestPatchIGASession(t *testing.T) {
 		assert.Equal(t, createdSession.ID, patchedSession.ID)
 		assert.Equal(t, createdSession.ProjectName, patchedSession.ProjectName) // Should remain unchanged
 		assert.Equal(t, newContextData, patchedSession.ContextData)
-
 		t.Log("new context data", newContextData)
 	})
 
@@ -431,7 +430,7 @@ func TestPatchIGASession(t *testing.T) {
 		payloadJSON, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := ts.newAuthenticatedRequest(t, http.MethodPatch, "/api/v1/iga/"+uuid.NewString(), payloadJSON)
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s", uuid.NewString()), payloadJSON)
 		req.Header.Set("Content-Type", "application/json")
 
 		res, err := ts.server.Client().Do(req)
@@ -459,7 +458,7 @@ func TestPatchIGASession(t *testing.T) {
 		payloadJSON, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPatch, ts.server.URL+"/api/v1/iga/"+otherUserSession.ID.String(), bytes.NewReader(payloadJSON))
+		req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/api/v1/iga/%s", ts.server.URL, otherUserSession.ID.String()), bytes.NewReader(payloadJSON))
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
@@ -544,7 +543,7 @@ func TestGetChatLog(t *testing.T) {
 		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodGet, ts.server.URL+"/api/v1/iga/"+otherUserSession.ID.String()+"/chat", nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/iga/%s/chat", ts.server.URL, otherUserSession.ID.String()), nil)
 		require.NoError(t, err)
 		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
 
