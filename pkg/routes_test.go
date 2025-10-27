@@ -14,6 +14,7 @@ import (
 	"github.com/jensilo/cognireq/pkg/db"
 	"github.com/jensilo/cognireq/pkg/types"
 	"github.com/jensilo/cognireq/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,7 +81,7 @@ func (ts *testServer) createTestUser(t *testing.T, email, password string) *type
 	return user
 }
 
-func (ts *testServer) newAuthenticatedRequest(t *testing.T, method, urlPath, body string) *http.Request {
+func (ts *testServer) newAuthenticatedRequest(t *testing.T, method, urlPath string, body []byte) *http.Request {
 	t.Helper()
 
 	user := ts.createTestUser(t, "test@test.com", "password123")
@@ -88,7 +89,7 @@ func (ts *testServer) newAuthenticatedRequest(t *testing.T, method, urlPath, bod
 	_, sessionID, err := ts.user.Login(t.Context(), user.Email, "password123")
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(method, ts.server.URL+urlPath, bytes.NewReader([]byte(body)))
+	req, err := http.NewRequest(method, ts.server.URL+urlPath, bytes.NewReader(body))
 	require.NoError(t, err)
 
 	req.AddCookie(&http.Cookie{
@@ -145,8 +146,18 @@ func TestRegister(t *testing.T) {
 func TestCreateIGASession(t *testing.T) {
 	t.Parallel()
 	ts := newTestServer(t)
-	payload := `{"project_name": "Test Project", "context_data": {"stakeholder_summary": "summary", "project_summary": "summary", "interview_goal": "goal", "interview_advice": "advice"}}`
-	req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/iga", payload)
+	payload := createIGAPayload{
+		ProjectName: "Test Project",
+		ContextData: types.IGASessionContextData{
+			StakeholderSummary: "Stakeholder Summary",
+			ProjectSummary:     "Project Summary",
+			InterviewGoal:      "Interview Goal",
+			InterviewAdvice:    "Interview Advice",
+		},
+	}
+	payloadJSON, err := json.Marshal(payload)
+	require.NoError(t, err)
+	req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/iga", payloadJSON)
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := ts.server.Client().Do(req)
@@ -160,5 +171,11 @@ func TestCreateIGASession(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotEqual(t, uuid.Nil, igaResp.ID)
-	require.Equal(t, "Test Project", igaResp.ProjectName)
+	assert.Equal(t, payload.ProjectName, igaResp.ProjectName)
+	assert.Equal(t, payload.ContextData.ProjectSummary, igaResp.ContextData.ProjectSummary)
+	assert.Equal(t, payload.ContextData.StakeholderSummary, igaResp.ContextData.StakeholderSummary)
+	assert.Equal(t, payload.ContextData.InterviewGoal, igaResp.ContextData.InterviewGoal)
+	assert.Equal(t, payload.ContextData.InterviewAdvice, igaResp.ContextData.InterviewAdvice)
+
+	t.Log("iga create response", igaResp)
 }
