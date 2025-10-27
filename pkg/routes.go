@@ -160,7 +160,7 @@ func registerController(logger *slog.Logger, service *UserService) ControllerLog
 			LastName:      in.LastName,
 			PlainPassword: in.PlainPassword,
 		}
-		id, err := service.Register(r.Context(), toCreate)
+		user, err := service.Register(r.Context(), toCreate)
 		if errors.Is(err, ErrEmailExists) {
 			return nil, 0, &WebError{Code: CodeEmailExists, Status: http.StatusConflict}
 		}
@@ -169,7 +169,7 @@ func registerController(logger *slog.Logger, service *UserService) ControllerLog
 			return nil, 0, NewInternalError()
 		}
 
-		return &registerResponse{ID: id}, http.StatusCreated, nil
+		return &registerResponse{ID: user.ID.String()}, http.StatusCreated, nil
 	}
 }
 
@@ -208,7 +208,7 @@ func loginController(logger *slog.Logger, service *UserService) ControllerLogic[
 			return nil, 0, NewInternalError()
 		}
 
-		SetSessionCookie(w, sessionID)
+		SetSessionCookie(w, sessionID.String())
 
 		return &loginResponse{}, http.StatusOK, nil
 	}
