@@ -12,6 +12,11 @@ import (
 	"github.com/jensilo/cognireq/pkg/types"
 )
 
+type APIIgaSessionContextData types.IGASessionContextData
+type APIIgaScriptQuestionMetadata types.IGAScriptQuestionMetadata
+type APIIgaChatLogMetadata types.IGAChatLogMetadata
+type APIIgaChatLogRole types.IGAChatLogRole
+
 const (
 	CodeEmailInvalid       = "EMAIL_INVALID"
 	CodeValueMissing       = "FIELD_MISSING"
@@ -276,17 +281,12 @@ func meController() http.Handler {
 }
 
 type igaSessionResponse struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	ProjectName string    `json:"project_name"`
-	ContextData struct {
-		StakeholderSummary string `json:"stakeholder_summary"`
-		ProjectSummary     string `json:"project_summary"`
-		InterviewGoal      string `json:"interview_goal"`
-		InterviewAdvice    string `json:"interview_advice"`
-	} `json:"context_data"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uuid.UUID                `json:"id"`
+	UserID      uuid.UUID                `json:"user_id"`
+	ProjectName string                   `json:"project_name"`
+	ContextData APIIgaSessionContextData `json:"context_data"`
+	CreatedAt   time.Time                `json:"created_at"`
+	UpdatedAt   time.Time                `json:"updated_at"`
 }
 
 type getIGAResponse []igaSessionResponse
@@ -299,7 +299,7 @@ func intoGetIGAResponse(igaSessions []types.IGASession) getIGAResponse {
 			ID:          session.ID,
 			UserID:      session.UserID,
 			ProjectName: session.ProjectName,
-			ContextData: session.ContextData,
+			ContextData: APIIgaSessionContextData(session.ContextData),
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 		}
@@ -328,8 +328,8 @@ func getIGAHandler(logger *slog.Logger, service *IGAService) http.Handler {
 }
 
 type createIGAPayload struct {
-	ProjectName string                      `json:"project_name"`
-	ContextData types.IGASessionContextData `json:"context_data"`
+	ProjectName string                   `json:"project_name"`
+	ContextData APIIgaSessionContextData `json:"context_data"`
 }
 
 func (p createIGAPayload) Validate() *WebError {
@@ -356,7 +356,7 @@ func createIGAController(logger *slog.Logger, service *IGAService) ControllerLog
 		toCreate := types.IGASessionToCreate{
 			UserID:      user.ID,
 			ProjectName: in.ProjectName,
-			ContextData: in.ContextData,
+			ContextData: types.IGASessionContextData(in.ContextData),
 		}
 
 		session, err := service.CreateSession(ctx, toCreate)
@@ -369,7 +369,7 @@ func createIGAController(logger *slog.Logger, service *IGAService) ControllerLog
 			ID:          session.ID,
 			UserID:      session.UserID,
 			ProjectName: session.ProjectName,
-			ContextData: session.ContextData,
+			ContextData: APIIgaSessionContextData(session.ContextData),
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 		}
@@ -403,7 +403,7 @@ func getIGAMetaHandler(logger *slog.Logger, service *IGAService) http.Handler {
 			ID:          session.ID,
 			UserID:      session.UserID,
 			ProjectName: session.ProjectName,
-			ContextData: session.ContextData,
+			ContextData: APIIgaSessionContextData(session.ContextData),
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 		}
@@ -415,8 +415,8 @@ func getIGAMetaHandler(logger *slog.Logger, service *IGAService) http.Handler {
 }
 
 type patchIGAMetaPayload struct {
-	ProjectName *string                      `json:"project_name"`
-	ContextData *types.IGASessionContextData `json:"context_data"`
+	ProjectName *string                   `json:"project_name"`
+	ContextData *APIIgaSessionContextData `json:"context_data"`
 }
 
 func (p patchIGAMetaPayload) Validate() *WebError {
@@ -436,7 +436,7 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 
 		toUpdate := types.IGASessionToUpdate{
 			ProjectName: in.ProjectName,
-			ContextData: in.ContextData,
+			ContextData: (*types.IGASessionContextData)(in.ContextData),
 		}
 
 		session, err := service.PatchSession(ctx, user.ID, id, toUpdate)
@@ -452,7 +452,7 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 			ID:          session.ID,
 			UserID:      session.UserID,
 			ProjectName: session.ProjectName,
-			ContextData: session.ContextData,
+			ContextData: APIIgaSessionContextData(session.ContextData),
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 		}
@@ -462,12 +462,12 @@ func patchIGAMetaController(logger *slog.Logger, service *IGAService) Controller
 }
 
 type chatMessageResponse struct {
-	ID           uuid.UUID                `json:"id"`
-	IGASessionID uuid.UUID                `json:"iga_session_id"`
-	Role         types.IGAChatLogRole     `json:"role"`
-	MessageText  string                   `json:"message_text"`
-	Metadata     types.IGAChatLogMetadata `json:"metadata"`
-	CreatedAt    time.Time                `json:"created_at"`
+	ID           uuid.UUID             `json:"id"`
+	IGASessionID uuid.UUID             `json:"iga_session_id"`
+	Role         APIIgaChatLogRole     `json:"role"`
+	MessageText  string                `json:"message_text"`
+	Metadata     APIIgaChatLogMetadata `json:"metadata"`
+	CreatedAt    time.Time             `json:"created_at"`
 }
 
 type getChatResponse []chatMessageResponse
@@ -479,9 +479,9 @@ func intoGetChatResponse(logs []types.IGAChatLog) getChatResponse {
 		res[i] = chatMessageResponse{
 			ID:           log.ID,
 			IGASessionID: log.IGASessionID,
-			Role:         log.Role,
+			Role:         APIIgaChatLogRole(log.Role),
 			MessageText:  log.MessageText,
-			Metadata:     log.Metadata,
+			Metadata:     APIIgaChatLogMetadata(log.Metadata),
 			CreatedAt:    log.CreatedAt,
 		}
 	}
@@ -563,9 +563,9 @@ func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogi
 		res := sendChatResponse{
 			ID:           log.ID,
 			IGASessionID: log.IGASessionID,
-			Role:         log.Role,
+			Role:         APIIgaChatLogRole(log.Role),
 			MessageText:  log.MessageText,
-			Metadata:     log.Metadata,
+			Metadata:     APIIgaChatLogMetadata(log.Metadata),
 			CreatedAt:    log.CreatedAt,
 		}
 
@@ -603,9 +603,9 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 		res := retryChatResponse{
 			ID:           log.ID,
 			IGASessionID: log.IGASessionID,
-			Role:         log.Role,
+			Role:         APIIgaChatLogRole(log.Role),
 			MessageText:  log.MessageText,
-			Metadata:     log.Metadata,
+			Metadata:     APIIgaChatLogMetadata(log.Metadata),
 			CreatedAt:    log.CreatedAt,
 		}
 
@@ -614,13 +614,13 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 }
 
 type questionResponse struct {
-	ID           uuid.UUID                       `json:"id"`
-	IGASessionID uuid.UUID                       `json:"iga_session_id"`
-	ReadableID   string                          `json:"readable_id"`
-	QuestionText string                          `json:"question_text"`
-	NoteText     string                          `json:"note_text"`
-	SortOrder    int16                           `json:"sort_order"`
-	Metadata     types.IGAScriptQuestionMetadata `json:"metadata,omitempty"`
+	ID           uuid.UUID                    `json:"id"`
+	IGASessionID uuid.UUID                    `json:"iga_session_id"`
+	ReadableID   string                       `json:"readable_id"`
+	QuestionText string                       `json:"question_text"`
+	NoteText     string                       `json:"note_text"`
+	SortOrder    int16                        `json:"sort_order"`
+	Metadata     APIIgaScriptQuestionMetadata `json:"metadata,omitempty"`
 }
 
 type getQuestionsResponse []questionResponse
@@ -636,7 +636,7 @@ func intoGetQuestionsResponse(questions []types.IGAScriptQuestion) getQuestionsR
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
 			SortOrder:    q.SortOrder,
-			Metadata:     q.Metadata,
+			Metadata:     APIIgaScriptQuestionMetadata(q.Metadata),
 		}
 	}
 
@@ -719,7 +719,7 @@ func postQuestionController(logger *slog.Logger, service *IGAService) Controller
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
 			SortOrder:    q.SortOrder,
-			Metadata:     q.Metadata,
+			Metadata:     APIIgaScriptQuestionMetadata(q.Metadata),
 		}
 
 		return &res, http.StatusCreated, nil
@@ -778,7 +778,7 @@ func patchQuestionController(logger *slog.Logger, service *IGAService) Controlle
 			QuestionText: q.QuestionText,
 			NoteText:     q.NoteText,
 			SortOrder:    q.SortOrder,
-			Metadata:     q.Metadata,
+			Metadata:     APIIgaScriptQuestionMetadata(q.Metadata),
 		}
 
 		return &res, http.StatusOK, nil

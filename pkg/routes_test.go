@@ -190,7 +190,7 @@ func TestCreateIGASession(t *testing.T) {
 	ts := newTestServer(t)
 	payload := createIGAPayload{
 		ProjectName: "Test Project",
-		ContextData: types.IGASessionContextData{
+		ContextData: APIIgaSessionContextData{
 			StakeholderSummary: "Stakeholder Summary",
 			ProjectSummary:     "Project Summary",
 			InterviewGoal:      "Interview Goal",
@@ -214,10 +214,7 @@ func TestCreateIGASession(t *testing.T) {
 
 	require.NotEqual(t, uuid.Nil, igaResp.ID)
 	assert.Equal(t, payload.ProjectName, igaResp.ProjectName)
-	assert.Equal(t, payload.ContextData.ProjectSummary, igaResp.ContextData.ProjectSummary)
-	assert.Equal(t, payload.ContextData.StakeholderSummary, igaResp.ContextData.StakeholderSummary)
-	assert.Equal(t, payload.ContextData.InterviewGoal, igaResp.ContextData.InterviewGoal)
-	assert.Equal(t, payload.ContextData.InterviewAdvice, igaResp.ContextData.InterviewAdvice)
+	assert.Equal(t, payload.ContextData, igaResp.ContextData)
 
 	t.Log("iga create response", igaResp)
 }
@@ -369,10 +366,7 @@ func TestPatchIGASession(t *testing.T) {
 
 		assert.Equal(t, createdSession.ID, patchedSession.ID)
 		assert.Equal(t, newProjectName, patchedSession.ProjectName)
-		assert.Equal(t, createdSession.ContextData.ProjectSummary, patchedSession.ContextData.ProjectSummary)
-		assert.Equal(t, createdSession.ContextData.StakeholderSummary, patchedSession.ContextData.StakeholderSummary)
-		assert.Equal(t, createdSession.ContextData.InterviewGoal, patchedSession.ContextData.InterviewGoal)
-		assert.Equal(t, createdSession.ContextData.InterviewAdvice, patchedSession.ContextData.InterviewAdvice)
+		assert.Equal(t, APIIgaSessionContextData(createdSession.ContextData), patchedSession.ContextData)
 		t.Log("created session name", createdSession.ProjectName, "patched session name", patchedSession.ProjectName)
 	})
 
@@ -383,7 +377,7 @@ func TestPatchIGASession(t *testing.T) {
 
 		createdSession := ts.createTestSession(t, ts.authedUser.ID, "Project with Context")
 
-		newContextData := types.IGASessionContextData{
+		newContextData := APIIgaSessionContextData{
 			StakeholderSummary: "New Stakeholder Summary",
 			ProjectSummary:     "New Project Summary",
 			InterviewGoal:      "New Interview Goal",
@@ -408,12 +402,7 @@ func TestPatchIGASession(t *testing.T) {
 
 		assert.Equal(t, createdSession.ID, patchedSession.ID)
 		assert.Equal(t, createdSession.ProjectName, patchedSession.ProjectName) // Should remain unchanged
-
-		patchedSessionContextDataJSON, err := json.Marshal(patchedSession.ContextData)
-		require.NoError(t, err, "error marshalling patched session context data for type conversion")
-		patchedSessionContextData, err := types.IntoIGASessionContextData(patchedSessionContextDataJSON)
-		require.NoError(t, err, "error unmarshalling patched session context data for type conversion")
-		assert.Equal(t, newContextData, patchedSessionContextData)
+		assert.Equal(t, newContextData, patchedSession.ContextData)
 
 		t.Log("new context data", newContextData)
 	})
