@@ -53,7 +53,9 @@ func Run(
 
 	go StartSessionCleanup(ctx, logger, services.User, 90*time.Minute)
 
-	srv, err := NewServer(getenv, logger, services)
+	mux, err := NewServer(logger, services)
+	srv := AddAPIMiddlewares(getenv, mux)
+
 	if err != nil {
 		return fmt.Errorf("error constructing server mux: %s", err)
 	}

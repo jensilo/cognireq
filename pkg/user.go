@@ -28,60 +28,80 @@ func NewUserService(queries *db.Queries) *UserService {
 	return &UserService{queries: queries}
 }
 
-func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (string, error) {
+func (us *UserService) Register(ctx context.Context, u types.UserToCreate) (*types.User, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(u.PlainPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return "", errors.New("could not hash password")
+		return nil, errors.New("could not hash password")
 	}
 
-	id, err := us.queries.CreateUser(ctx, db.CreateUserParams{
+	user, err := us.queries.CreateUser(ctx, db.CreateUserParams{
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
 		Password:  string(passwordHash),
 	})
 	if db.IsUniqueConstraintViolation(err) {
-		return "", ErrEmailExists
+		return nil, ErrEmailExists
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return id.String(), nil
+	return &types.User{
+		ID:        user.ID,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		LastLogin: user.LastLogin.Time,
+		UpdatedAt: user.UpdatedAt.Time,
+		CreatedAt: user.CreatedAt.Time,
+	}, nil
 }
 
-func (us *UserService) Login(ctx context.Context, email, password string) (userID, sessionID string, err error) {
+func (us *UserService) Login(ctx context.Context, email, password string) (userID, sessionID uuid.UUID, err error) {
 	usr, err := us.queries.UserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		_ = bcrypt.CompareHashAndPassword(
 			[]byte("$2a$10$6zBr8NNH1S.2Nnyb4UdG/Op12FmR5VPIQHTSs.gAqD.AXhtOL9IIe"),
 			[]byte("6de4f3ca5701c098ff2cf2e45003d0b858f7991064d5c193eb6bfb159e8bcb1e"),
 		)
-		return "", "", ErrInvalidLogin
+		return uuid.Nil, uuid.Nil, ErrInvalidLogin
 	}
 	if err != nil {
-		return "", "", err
+		return uuid.Nil, uuid.Nil, err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password))
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-		return "", "", ErrInvalidLogin
+		return uuid.Nil, uuid.Nil, ErrInvalidLogin
 	}
 	if err != nil {
-		return "", "", err
+		return uuid.Nil, uuid.Nil, err
 	}
 
 	sessID, err := us.createLoginSession(ctx, usr.ID)
 	if err != nil {
-		return "", "", err
+		return uuid.Nil, uuid.Nil, err
 	}
 
 	err = us.queries.UpdateLastLogin(ctx, usr.ID)
 	if err != nil {
-		return "", "", err
+		return uuid.Nil, uuid.Nil, err
 	}
 
-	return usr.ID.String(), sessID.String(), nil
+	return usr.ID, sessID, nil
+}
+
+func (us *UserService) ActivateUser(ctx context.Context, usrID uuid.UUID) error {
+	rows, err := us.queries.ActivateUserByID(ctx, usrID)
+	if rows < 1 {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (us *UserService) createLoginSession(ctx context.Context, usrID uuid.UUID) (uuid.UUID, error) {

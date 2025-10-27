@@ -12,6 +12,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const activateUserByID = `-- name: ActivateUserByID :execrows
+UPDATE users SET active = true WHERE id = $1
+`
+
+func (q *Queries) ActivateUserByID(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, activateUserByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createIGAChatLog = `-- name: CreateIGAChatLog :one
 INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)
 SELECT $2, $3, $4, $5
@@ -143,7 +155,8 @@ const createUser = `-- name: CreateUser :one
 
 
 INSERT INTO users (email, first_name, last_name, password)
-VALUES ($1, $2, $3, $4) RETURNING id
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, first_name, last_name, password, active, last_login, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -156,16 +169,26 @@ type CreateUserParams struct {
 // -
 // - User and Session Management ---
 // -
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
 		arg.Password,
 	)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.Password,
+		&i.Active,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :execrows

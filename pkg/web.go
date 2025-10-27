@@ -88,16 +88,18 @@ func NewForbiddenError() *WebError {
 	}
 }
 
-func NewServer(getenv cfg.GetEnvFunc, logger *slog.Logger, services *Services) (http.Handler, error) {
+func NewServer(logger *slog.Logger, services *Services) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 	err := addRoutes(mux, logger, services)
 	if err != nil {
 		return nil, err
 	}
 
-	finalMux := CORSMiddleware(getenv)(mux)
+	return mux, nil
+}
 
-	return finalMux, nil
+func AddAPIMiddlewares(getenv cfg.GetEnvFunc, mux *http.ServeMux) http.Handler {
+	return CORSMiddleware(getenv)(mux)
 }
 
 // Validatable is a payload that can be validated.
