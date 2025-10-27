@@ -22,6 +22,8 @@ var seed []byte
 const DBConnStr = "user=user password=password host=localhost port=6543 dbname=cognireq"
 
 func InitDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
 	schemaID := sanitizeSchemaName(fmt.Sprintf("test_%s", uuid.New().String()))
 	dbConnStr := fmt.Sprintf("%s search_path=%s", DBConnStr, schemaID)
 
@@ -60,6 +62,6 @@ func sanitizeSchemaName(schema string) string {
 	return pgx.Identifier{schema}.Sanitize()
 }
 
-func InitLogger(t *testing.T) *slog.Logger {
+func InitLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, nil))
 }
