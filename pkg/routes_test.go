@@ -519,6 +519,9 @@ func TestGetChatLog(t *testing.T) {
 		assert.Equal(t, "Hi there!", chatLogs[0].MessageText)
 		assert.Equal(t, APIIgaChatLogRole("user"), chatLogs[1].Role)
 		assert.Equal(t, "Hello", chatLogs[1].MessageText)
+
+		t.Log("user", chatLogs[1].MessageText)
+		t.Log("assistant", chatLogs[0].MessageText)
 	})
 
 	t.Run("not found", func(t *testing.T) {
