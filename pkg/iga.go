@@ -200,9 +200,13 @@ func (is *IGAService) ChatLogBySessionID(ctx context.Context, userID, sessionID 
 }
 
 func intoIGAChatLog(log db.IgaChatLog) (types.IGAChatLog, error) {
-	metadata, err := types.IntoIGAChatLogMetadata(log.Metadata)
-	if err != nil {
-		return types.IGAChatLog{}, fmt.Errorf("failed to parse metadata for chat log %s: %w", log.ID, err)
+	var metadata types.IGAChatLogMetadata
+	if len(log.Metadata) > 0 {
+		var err error
+		metadata, err = types.IntoIGAChatLogMetadata(log.Metadata)
+		if err != nil {
+			return types.IGAChatLog{}, fmt.Errorf("failed to parse metadata for chat log %s: %w", log.ID, err)
+		}
 	}
 
 	role, err := types.IntoIGAChatLogRole(log.Role)
