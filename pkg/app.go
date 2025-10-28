@@ -20,10 +20,11 @@ import (
 
 type Services struct {
 	User *UserService
+	IGA  *IGAService
 }
 
-func NewServices(us *UserService) *Services {
-	return &Services{User: us}
+func NewServices(us *UserService, is *IGAService) *Services {
+	return &Services{User: us, IGA: is}
 }
 
 func Run(
@@ -47,11 +48,14 @@ func Run(
 
 	services := NewServices(
 		NewUserService(queries),
+		NewIGAService(queries),
 	)
 
 	go StartSessionCleanup(ctx, logger, services.User, 90*time.Minute)
 
-	srv, err := NewServer(getenv, logger, services)
+	mux, err := NewServer(logger, services)
+	srv := AddAPIMiddlewares(getenv, mux)
+
 	if err != nil {
 		return fmt.Errorf("error constructing server mux: %s", err)
 	}

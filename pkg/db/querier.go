@@ -7,18 +7,43 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-	CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error)
-	CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error)
+	ActivateUserByID(ctx context.Context, id uuid.UUID) (int64, error)
+	CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error)
+	CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error)
+	CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error)
+	//-
+	//- User and Session Management ---
+	//-
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
-	DeleteSession(ctx context.Context, id pgtype.UUID) error
-	SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
-	UpdateLastLogin(ctx context.Context, id pgtype.UUID) error
+	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error)
+	DeleteSession(ctx context.Context, id uuid.UUID) error
+	IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error)
+	IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error)
+	//-
+	//- IGA Questions Management ---
+	//-
+	IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error)
+	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
+	//-
+	//- IGA Chat Log Management ---
+	//-
+	IGASessionExistsForUser(ctx context.Context, arg IGASessionExistsForUserParams) (bool, error)
+	//-
+	//- IGA Session Management ---
+	//-
+	IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error)
+	PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScriptQuestionParams) (IgaScriptQuestion, error)
+	PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error)
+	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
+	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UserByEmail(ctx context.Context, email string) (User, error)
-	UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error)
+	UserBySessionID(ctx context.Context, id uuid.UUID) (UserBySessionIDRow, error)
 }
 
 var _ Querier = (*Queries)(nil)
