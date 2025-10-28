@@ -56,6 +56,11 @@ jobs:
       - name: Set up docker environment using compose
         run: (cd docker/dev && docker compose up -d --wait backend testdb)
 
+      - name: Get backend logs on failure
+        if: failure()
+        run: (cd docker/dev && docker compose logs backend)
+
+
       - name: Move buildx cache
         run: |
           rm -rf /tmp/.buildx-cache
