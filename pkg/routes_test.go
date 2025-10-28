@@ -534,6 +534,7 @@ func TestGetChatLog(t *testing.T) {
 		defer res.Body.Close()
 
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
 	})
 
 	t.Run("forbidden", func(t *testing.T) {
@@ -555,5 +556,6 @@ func TestGetChatLog(t *testing.T) {
 		defer res.Body.Close()
 
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
 	})
 }

@@ -23,9 +23,6 @@ type Querier interface {
 	DeleteExpiredSessions(ctx context.Context) (int64, error)
 	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
-	//-
-	//- IGA Chat Log Management ---
-	//-
 	IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error)
 	IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error)
 	//-
@@ -33,6 +30,10 @@ type Querier interface {
 	//-
 	IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error)
 	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
+	//-
+	//- IGA Chat Log Management ---
+	//-
+	IGASessionExistsForUser(ctx context.Context, arg IGASessionExistsForUserParams) (bool, error)
 	//-
 	//- IGA Session Management ---
 	//-

@@ -75,6 +75,12 @@ RETURNING *;
 ---
 
 
+-- name: IGASessionExistsForUser :one
+SELECT EXISTS(
+    SELECT 1 FROM iga_sessions
+    WHERE id = $2 AND user_id = $1
+);
+
 -- name: IGAChatLogsBySessionID :many
 SELECT iga_chat_logs.* FROM iga_chat_logs
 INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id

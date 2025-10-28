@@ -234,8 +234,6 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 }
 
 const iGAChatLogsBySessionID = `-- name: IGAChatLogsBySessionID :many
-
-
 SELECT iga_chat_logs.id, iga_chat_logs.iga_session_id, iga_chat_logs.role, iga_chat_logs.message_text, iga_chat_logs.metadata, iga_chat_logs.created_at FROM iga_chat_logs
 INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
 WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
@@ -247,9 +245,6 @@ type IGAChatLogsBySessionIDParams struct {
 	ID     uuid.UUID `json:"id"`
 }
 
-// -
-// - IGA Chat Log Management ---
-// -
 func (q *Queries) IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error) {
 	rows, err := q.db.Query(ctx, iGAChatLogsBySessionID, arg.UserID, arg.ID)
 	if err != nil {
@@ -363,6 +358,30 @@ func (q *Queries) IGASessionByID(ctx context.Context, arg IGASessionByIDParams) 
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const iGASessionExistsForUser = `-- name: IGASessionExistsForUser :one
+
+
+SELECT EXISTS(
+    SELECT 1 FROM iga_sessions
+    WHERE id = $2 AND user_id = $1
+)
+`
+
+type IGASessionExistsForUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+// -
+// - IGA Chat Log Management ---
+// -
+func (q *Queries) IGASessionExistsForUser(ctx context.Context, arg IGASessionExistsForUserParams) (bool, error) {
+	row := q.db.QueryRow(ctx, iGASessionExistsForUser, arg.UserID, arg.ID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const iGASessionsByUser = `-- name: IGASessionsByUser :many

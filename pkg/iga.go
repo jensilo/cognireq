@@ -188,6 +188,17 @@ func (is *IGAService) PatchSession(ctx context.Context, userID, sessionID uuid.U
 }
 
 func (is *IGAService) ChatLogBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAChatLog, error) {
+	sessionExists, err := is.queries.IGASessionExistsForUser(ctx, db.IGASessionExistsForUserParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !sessionExists {
+		return nil, ErrNotFound
+	}
+
 	logs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
 		UserID: userID,
 		ID:     sessionID,
