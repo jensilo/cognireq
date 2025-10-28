@@ -420,6 +420,10 @@ type patchIGAMetaPayload struct {
 }
 
 func (p patchIGAMetaPayload) Validate() *WebError {
+	if p.ProjectName != nil && *p.ProjectName == "" {
+		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "project_name"}})
+	}
+
 	return nil
 }
 
