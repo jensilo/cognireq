@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up docker environment using compose
+        run: (cd docker/dev && docker compose up -d --wait backend testdb)
+
+      - name: Verify Generated Code
+        run: |
+          if ! git diff --exit-code; then
+            echo "Generated code is out of date. Please run 'sqlc generate' and 'go generate ./...' and commit the changes."
+            exit 1
+          fi
+
+      - name: Run Go tests
+        run: (cd docker/dev && docker compose exec backend go test -v -race -coverprofile=coverage.out ./...)
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always() # always upload, even if tests fail
+        with:
+          name: coverage-report
+          path: ./docker/dev/coverage.out
