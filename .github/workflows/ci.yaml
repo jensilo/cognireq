@@ -14,62 +14,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        id: buildx
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Build and cache backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: docker/dev
-          file: docker/dev/backend.Dockerfile
-          push: false # Don't push to a registry
-          load: true # Load image into Docker daemon
-          tags: cognireq-backend-dev:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          builder: ${{ steps.buildx.outputs.name }}
-
-      - name: Build and cache testdb image
-        uses: docker/build-push-action@v5
-        with:
-          context: docker/dev
-          file: docker/dev/db.Dockerfile
-          push: false # Don't push to a registry
-          load: true # Load image into Docker daemon
-          tags: cognireq-testdb-dev:latest # Use a distinct tag for testdb
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          builder: ${{ steps.buildx.outputs.name }}
-
-      - name: Build docker compose services
-        run: (cd docker/dev && docker compose build)
-
-      - name: Set up docker environment using compose
-        run: (cd docker/dev && docker compose up -d --wait backend testdb)
-
-      - name: Get backend logs on failure
-        if: failure()
-        run: (cd docker/dev && docker compose logs backend)
-
-
-      - name: Move buildx cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          go-version: '1.24' # Specify the Go version for the runner
 
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
-          path: /go/pkg/mod
+          path: ~/go/pkg/mod # Default GOMODCACHE on host
           key: ${{ runner.os }}-go-modules-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-modules-
@@ -77,11 +30,13 @@ jobs:
       - name: Cache Go build cache
         uses: actions/cache@v4
         with:
-          path: /go/cache
+          path: ~/.cache/go-build # Default GOCACHE on host
           key: ${{ runner.os }}-go-build-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-go-build-
 
+      - name: Set up docker environment (testdb only)
+        run: (cd docker/dev && docker compose up -d --wait testdb)
 
       - name: Verify Generated Code
         run: |
@@ -91,7 +46,7 @@ jobs:
           fi
 
       - name: Run Go tests
-        run: (cd docker/dev && docker compose exec backend go test -v -race -coverprofile=coverage.out ./...)
+        run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
