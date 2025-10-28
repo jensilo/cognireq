@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -118,9 +117,8 @@ func (ts *testServer) doAuth(t *testing.T) {
 		_, sessionID, err := ts.user.Login(t.Context(), user.Email, "password123")
 		require.NoError(t, err)
 		ts.cookie = &http.Cookie{
-			Name:    "session_id",
-			Value:   sessionID.String(),
-			Expires: time.Now().Add(time.Hour), // todo
+			Name:  "session_id",
+			Value: sessionID.String(),
 		}
 		ts.authedUser = user
 	})
