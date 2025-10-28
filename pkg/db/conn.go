@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,22 +25,4 @@ func IsUniqueConstraintViolation(err error) bool {
 	}
 
 	return false
-}
-
-func IntoUUID(pgUUID pgtype.UUID) (uuid.UUID, error) {
-	id, err := uuid.Parse(pgUUID.String())
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
-func MustIntoUUID(pgUUID pgtype.UUID) uuid.UUID {
-	id, err := IntoUUID(pgUUID)
-	if err != nil {
-		panic(err)
-	}
-
-	return id
 }

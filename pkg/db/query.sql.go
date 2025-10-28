@@ -8,8 +8,131 @@ package db
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const activateUserByID = `-- name: ActivateUserByID :execrows
+UPDATE users SET active = true WHERE id = $1
+`
+
+func (q *Queries) ActivateUserByID(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, activateUserByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const createIGAChatLog = `-- name: CreateIGAChatLog :one
+INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)
+SELECT $2, $3, $4, $5
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
+RETURNING id, iga_session_id, role, message_text, metadata, created_at
+`
+
+type CreateIGAChatLogParams struct {
+	UserID       uuid.UUID `json:"user_id"`
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	Role         string    `json:"role"`
+	MessageText  string    `json:"message_text"`
+	Metadata     []byte    `json:"metadata"`
+}
+
+func (q *Queries) CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error) {
+	row := q.db.QueryRow(ctx, createIGAChatLog,
+		arg.UserID,
+		arg.IgaSessionID,
+		arg.Role,
+		arg.MessageText,
+		arg.Metadata,
+	)
+	var i IgaChatLog
+	err := row.Scan(
+		&i.ID,
+		&i.IgaSessionID,
+		&i.Role,
+		&i.MessageText,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createIGAScriptQuestion = `-- name: CreateIGAScriptQuestion :one
+INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
+SELECT $2, $3, $4, $5, $6, $7
+FROM iga_sessions
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
+RETURNING id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata
+`
+
+type CreateIGAScriptQuestionParams struct {
+	UserID       uuid.UUID   `json:"user_id"`
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	ReadableID   string      `json:"readable_id"`
+	QuestionText string      `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    int16       `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+}
+
+func (q *Queries) CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error) {
+	row := q.db.QueryRow(ctx, createIGAScriptQuestion,
+		arg.UserID,
+		arg.IgaSessionID,
+		arg.ReadableID,
+		arg.QuestionText,
+		arg.NoteText,
+		arg.SortOrder,
+		arg.Metadata,
+	)
+	var i IgaScriptQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.IgaSessionID,
+		&i.ReadableID,
+		&i.QuestionText,
+		&i.NoteText,
+		&i.SortOrder,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const createIGASession = `-- name: CreateIGASession :one
+INSERT INTO iga_sessions (user_id, project_name, context_data, system_metadata)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
+`
+
+type CreateIGASessionParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ProjectName    string    `json:"project_name"`
+	ContextData    []byte    `json:"context_data"`
+	SystemMetadata []byte    `json:"system_metadata"`
+}
+
+func (q *Queries) CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, createIGASession,
+		arg.UserID,
+		arg.ProjectName,
+		arg.ContextData,
+		arg.SystemMetadata,
+	)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (user_id, expiry_at)
@@ -17,20 +140,23 @@ VALUES ($1, $2) RETURNING id
 `
 
 type CreateSessionParams struct {
-	UserID   pgtype.UUID      `json:"user_id"`
+	UserID   uuid.UUID        `json:"user_id"`
 	ExpiryAt pgtype.Timestamp `json:"expiry_at"`
 }
 
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (pgtype.UUID, error) {
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.ExpiryAt)
-	var id pgtype.UUID
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
 
 const createUser = `-- name: CreateUser :one
+
+
 INSERT INTO users (email, first_name, last_name, password)
-VALUES ($1, $2, $3, $4) RETURNING id
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, first_name, last_name, password, active, last_login, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -40,16 +166,29 @@ type CreateUserParams struct {
 	Password  string `json:"password"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (pgtype.UUID, error) {
+// -
+// - User and Session Management ---
+// -
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
 		arg.Password,
 	)
-	var id pgtype.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.Password,
+		&i.Active,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :execrows
@@ -64,13 +203,313 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const deleteIGAScriptQuestion = `-- name: DeleteIGAScriptQuestion :execrows
+DELETE FROM iga_script_questions
+WHERE
+    iga_script_questions.id = $3 AND iga_session_id = $2
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1)
+`
+
+type DeleteIGAScriptQuestionParams struct {
+	UserID       uuid.UUID `json:"user_id"`
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	ID           uuid.UUID `json:"id"`
+}
+
+func (q *Queries) DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteIGAScriptQuestion, arg.UserID, arg.IgaSessionID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = $1
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
+}
+
+const iGAChatLogsBySessionID = `-- name: IGAChatLogsBySessionID :many
+SELECT iga_chat_logs.id, iga_chat_logs.iga_session_id, iga_chat_logs.role, iga_chat_logs.message_text, iga_chat_logs.metadata, iga_chat_logs.created_at FROM iga_chat_logs
+INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
+WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
+ORDER BY iga_chat_logs.created_at DESC
+`
+
+type IGAChatLogsBySessionIDParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error) {
+	rows, err := q.db.Query(ctx, iGAChatLogsBySessionID, arg.UserID, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IgaChatLog{}
+	for rows.Next() {
+		var i IgaChatLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.IgaSessionID,
+			&i.Role,
+			&i.MessageText,
+			&i.Metadata,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const iGAScriptQuestionExistsByReadableID = `-- name: IGAScriptQuestionExistsByReadableID :one
+SELECT EXISTS(
+    SELECT 1 FROM iga_script_questions
+    WHERE iga_session_id = $1 AND readable_id = $2
+)
+`
+
+type IGAScriptQuestionExistsByReadableIDParams struct {
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	ReadableID   string    `json:"readable_id"`
+}
+
+func (q *Queries) IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error) {
+	row := q.db.QueryRow(ctx, iGAScriptQuestionExistsByReadableID, arg.IgaSessionID, arg.ReadableID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const iGAScriptQuestionsBySessionID = `-- name: IGAScriptQuestionsBySessionID :many
+
+SELECT iga_script_questions.id, iga_script_questions.iga_session_id, iga_script_questions.readable_id, iga_script_questions.question_text, iga_script_questions.note_text, iga_script_questions.sort_order, iga_script_questions.metadata FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2
+ORDER BY iga_script_questions.sort_order
+`
+
+type IGAScriptQuestionsBySessionIDParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+// -
+// - IGA Questions Management ---
+// -
+func (q *Queries) IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error) {
+	rows, err := q.db.Query(ctx, iGAScriptQuestionsBySessionID, arg.UserID, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IgaScriptQuestion{}
+	for rows.Next() {
+		var i IgaScriptQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.IgaSessionID,
+			&i.ReadableID,
+			&i.QuestionText,
+			&i.NoteText,
+			&i.SortOrder,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const iGASessionByID = `-- name: IGASessionByID :one
+SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
+WHERE id = $2 AND user_id = $1 LIMIT 1
+`
+
+type IGASessionByIDParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, iGASessionByID, arg.UserID, arg.ID)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const iGASessionExistsForUser = `-- name: IGASessionExistsForUser :one
+
+
+SELECT EXISTS(
+    SELECT 1 FROM iga_sessions
+    WHERE id = $2 AND user_id = $1
+)
+`
+
+type IGASessionExistsForUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+// -
+// - IGA Chat Log Management ---
+// -
+func (q *Queries) IGASessionExistsForUser(ctx context.Context, arg IGASessionExistsForUserParams) (bool, error) {
+	row := q.db.QueryRow(ctx, iGASessionExistsForUser, arg.UserID, arg.ID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const iGASessionsByUser = `-- name: IGASessionsByUser :many
+
+
+SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
+WHERE user_id = $1
+ORDER BY updated_at DESC
+`
+
+// -
+// - IGA Session Management ---
+// -
+func (q *Queries) IGASessionsByUser(ctx context.Context, userID uuid.UUID) ([]IgaSession, error) {
+	rows, err := q.db.Query(ctx, iGASessionsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IgaSession{}
+	for rows.Next() {
+		var i IgaSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ProjectName,
+			&i.ContextData,
+			&i.SystemMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const patchIGAScriptQuestion = `-- name: PatchIGAScriptQuestion :one
+UPDATE iga_script_questions
+SET
+    readable_id = COALESCE($1, readable_id),
+    question_text = COALESCE($2, question_text),
+    note_text = COALESCE($3, note_text),
+    sort_order = COALESCE($4, sort_order),
+    metadata = COALESCE($5, metadata)
+WHERE
+    iga_script_questions.id = $6 AND iga_session_id = $7
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = $7 AND sess.user_id = $8)
+RETURNING id, iga_session_id, readable_id, question_text, note_text, sort_order, metadata
+`
+
+type PatchIGAScriptQuestionParams struct {
+	ReadableID   pgtype.Text `json:"readable_id"`
+	QuestionText pgtype.Text `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    pgtype.Int2 `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+	ID           uuid.UUID   `json:"id"`
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	UserID       uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScriptQuestionParams) (IgaScriptQuestion, error) {
+	row := q.db.QueryRow(ctx, patchIGAScriptQuestion,
+		arg.ReadableID,
+		arg.QuestionText,
+		arg.NoteText,
+		arg.SortOrder,
+		arg.Metadata,
+		arg.ID,
+		arg.IgaSessionID,
+		arg.UserID,
+	)
+	var i IgaScriptQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.IgaSessionID,
+		&i.ReadableID,
+		&i.QuestionText,
+		&i.NoteText,
+		&i.SortOrder,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const patchIGASession = `-- name: PatchIGASession :one
+UPDATE iga_sessions
+SET
+    project_name = COALESCE($1, project_name),
+    context_data = COALESCE($2, context_data),
+    system_metadata = COALESCE($3, system_metadata),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $4 AND user_id = $5
+RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
+`
+
+type PatchIGASessionParams struct {
+	ProjectName    pgtype.Text `json:"project_name"`
+	ContextData    []byte      `json:"context_data"`
+	SystemMetadata []byte      `json:"system_metadata"`
+	ID             uuid.UUID   `json:"id"`
+	UserID         uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, patchIGASession,
+		arg.ProjectName,
+		arg.ContextData,
+		arg.SystemMetadata,
+		arg.ID,
+		arg.UserID,
+	)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const sessionByUserID = `-- name: SessionByUserID :one
@@ -78,7 +517,7 @@ SELECT id, user_id, expiry_at, created_at FROM sessions
 WHERE user_id = $1 LIMIT 1
 `
 
-func (q *Queries) SessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error) {
+func (q *Queries) SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error) {
 	row := q.db.QueryRow(ctx, sessionByUserID, userID)
 	var i Session
 	err := row.Scan(
@@ -95,7 +534,7 @@ UPDATE users SET last_login = CURRENT_TIMESTAMP
 WHERE id = $1
 `
 
-func (q *Queries) UpdateLastLogin(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, updateLastLogin, id)
 	return err
 }
@@ -130,7 +569,7 @@ ORDER BY sessions.expiry_at DESC LIMIT 1
 `
 
 type UserBySessionIDRow struct {
-	ID          pgtype.UUID      `json:"id"`
+	ID          uuid.UUID        `json:"id"`
 	Email       string           `json:"email"`
 	FirstName   string           `json:"first_name"`
 	LastName    string           `json:"last_name"`
@@ -139,13 +578,13 @@ type UserBySessionIDRow struct {
 	LastLogin   pgtype.Timestamp `json:"last_login"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	ID_2        pgtype.UUID      `json:"id_2"`
-	UserID      pgtype.UUID      `json:"user_id"`
+	ID_2        uuid.UUID        `json:"id_2"`
+	UserID      uuid.UUID        `json:"user_id"`
 	ExpiryAt    pgtype.Timestamp `json:"expiry_at"`
 	CreatedAt_2 pgtype.Timestamp `json:"created_at_2"`
 }
 
-func (q *Queries) UserBySessionID(ctx context.Context, id pgtype.UUID) (UserBySessionIDRow, error) {
+func (q *Queries) UserBySessionID(ctx context.Context, id uuid.UUID) (UserBySessionIDRow, error) {
 	row := q.db.QueryRow(ctx, userBySessionID, id)
 	var i UserBySessionIDRow
 	err := row.Scan(

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jensilo/cognireq/pkg/cfg"
 	"github.com/jensilo/cognireq/pkg/types"
 )
@@ -22,6 +23,8 @@ const (
 	CodeMalformedRequestError = "MALFORMED_REQUEST_ERROR"
 	CodeValidationError       = "VALIDATION_ERROR"
 	CodeAuthError             = "AUTHORIZATION_ERROR"
+	CodeNotFound              = "NOT_FOUND_ERROR"
+	CodeForbidden             = "FORBIDDEN"
 )
 
 // ControllerLogic represents the core business logic of a controller.
@@ -71,16 +74,32 @@ func NewAuthError() *WebError {
 	}
 }
 
-func NewServer(getenv cfg.GetEnvFunc, logger *slog.Logger, services *Services) (http.Handler, error) {
+func NewNotFoundError() *WebError {
+	return &WebError{
+		Code:   CodeNotFound,
+		Status: http.StatusNotFound,
+	}
+}
+
+func NewForbiddenError() *WebError {
+	return &WebError{
+		Code:   CodeForbidden,
+		Status: http.StatusForbidden,
+	}
+}
+
+func NewServer(logger *slog.Logger, services *Services) (*http.ServeMux, error) {
 	mux := http.NewServeMux()
 	err := addRoutes(mux, logger, services)
 	if err != nil {
 		return nil, err
 	}
 
-	finalMux := CORSMiddleware(getenv)(mux)
+	return mux, nil
+}
 
-	return finalMux, nil
+func AddAPIMiddlewares(getenv cfg.GetEnvFunc, mux *http.ServeMux) http.Handler {
+	return CORSMiddleware(getenv)(mux)
 }
 
 // Validatable is a payload that can be validated.
@@ -224,8 +243,17 @@ func AuthMiddleware(logger *slog.Logger, service *UserService) func(http.Handler
 				return
 			}
 
+			// check if cookie value is UUID
+			sessionID, err := uuid.Parse(id)
+			if err != nil {
+				logger.Info("invalid uuid in session cookie", "id", id)
+				RemoveSessionCookie(w)
+				WriteJSONError(w, NewAuthError())
+				return
+			}
+
 			ctx := r.Context()
-			user, err := service.LoggedInUser(ctx, id)
+			user, err := service.LoggedInUser(ctx, sessionID)
 			if err != nil {
 				logger.Info("authentication failed", "id", id, "err", err)
 				RemoveSessionCookie(w)
