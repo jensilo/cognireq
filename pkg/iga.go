@@ -346,8 +346,8 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 		return nil, err
 	}
 
-	if len(logs) == 0 {
-		return nil, fmt.Errorf("no message found to retry")
+	if len(logs) == 0 { // either no messages found, lacking permission, or session not found
+		return nil, ErrNotFound
 	}
 
 	// TODO: NLP integration to regenerate the last response.
@@ -378,6 +378,17 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 }
 
 func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {
+	sessionExists, err := is.queries.IGASessionExistsForUser(ctx, db.IGASessionExistsForUserParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !sessionExists {
+		return nil, ErrNotFound
+	}
+
 	questions, err := is.queries.IGAScriptQuestionsBySessionID(ctx, db.IGAScriptQuestionsBySessionIDParams{
 		UserID: userID,
 		ID:     sessionID,

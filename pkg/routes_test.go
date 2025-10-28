@@ -559,3 +559,875 @@ func TestGetChatLog(t *testing.T) {
 		t.Log("Not Found", res.StatusCode)
 	})
 }
+
+func TestSendChatController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for Sending")
+		messageText := "This is a test message."
+		instructionType := types.IGAChatLogInstructionMessage
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role) // the service returns the assistant's response
+		assert.NotEmpty(t, chatResp.MessageText)                                         // stubbed response
+		assert.NotZero(t, chatResp.CreatedAt)
+		t.Log("message", chatResp.MessageText, "role", chatResp.Role, "created at", chatResp.CreatedAt)
+
+		// verify the user's message is in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2)                           // user message + assistant response
+		assert.Equal(t, messageText, logs[1].MessageText) // user's message is the second one (older)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[1].Role)
+		t.Log("message", logs[1].MessageText, "role", logs[1].Role, "created at", logs[1].CreatedAt)
+		t.Log("message", logs[0].MessageText, "role", logs[0].Role, "created at", logs[0].CreatedAt)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		payload := sendChatPayload{
+			MessageText: "test",
+			Instruction: types.IGAChatLogInstructionMessage,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/iga/invalid-uuid/chat", payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		payload := sendChatPayload{
+			MessageText: "test",
+			Instruction: types.IGAChatLogInstructionMessage,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", uuid.NewString()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Chat Session")
+
+		intruder := ts.createTestUser(t, "intruder4@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		payload := sendChatPayload{
+			MessageText: "I'm an intruder!",
+			Instruction: types.IGAChatLogInstructionMessage,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/iga/%s/chat", ts.server.URL, otherUserSession.ID.String()), bytes.NewReader(payloadJSON))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("validation error (empty message text)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Validation Test Session")
+
+		payload := sendChatPayload{
+			MessageText: "", // Empty message
+			Instruction: types.IGAChatLogInstructionMessage,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeValueMissing, webErr.Fields[0].Code)
+		assert.Equal(t, "message_text", webErr.Fields[0].Field)
+
+		t.Log("Bad Request", res.StatusCode, "err", webErr.Code)
+	})
+
+	t.Run("validation error (invalid instruction type)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Validation Test Session")
+
+		payload := sendChatPayload{
+			MessageText: "Valid message",
+			Instruction: "INVALID_INSTRUCTION_TYPE", // Invalid instruction
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeInvalidValue, webErr.Fields[0].Code)
+		assert.Equal(t, "instruction", webErr.Fields[0].Field)
+
+		t.Log("Bad Request", res.StatusCode, "err", webErr.Code)
+	})
+}
+
+func TestRetryChatController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for Retry")
+		ts.createTestChatLog(t, ts.authedUser.ID, session.ID, "Initial user message", types.IGAChatLogRoleUser)
+		// service will NOT create and assistant response
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat/retry", session.ID.String()), []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp retryChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText) // stubbed retry response
+		assert.NotZero(t, chatResp.CreatedAt)
+		t.Log("message", chatResp.MessageText, "role", chatResp.Role, "created at", chatResp.CreatedAt)
+
+		// verify total messages in DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user (no assistant reply), new assistant
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/iga/invalid-uuid/chat/retry", []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat/retry", uuid.NewString()), []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Chat Session")
+		ts.createTestChatLog(t, ts.authedUser.ID, otherUserSession.ID, "User message for other session", types.IGAChatLogRoleUser)
+
+		intruder := ts.createTestUser(t, "intruder5@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/iga/%s/chat/retry", ts.server.URL, otherUserSession.ID.String()), bytes.NewReader([]byte("{}")))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("no messages to retry", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Empty Chat Session")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat/retry", session.ID.String()), []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+}
+
+func TestGetQuestionsHandler(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty questions list", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Questions Session Empty")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/questions", session.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var questions getQuestionsResponse
+		err = json.NewDecoder(res.Body).Decode(&questions)
+		require.NoError(t, err)
+		assert.Len(t, questions, 0)
+	})
+
+	t.Run("populated questions list", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Questions Session Populated")
+		q1 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1")
+		q2 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/questions", session.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var questions getQuestionsResponse
+		err = json.NewDecoder(res.Body).Decode(&questions)
+		require.NoError(t, err)
+		assert.Len(t, questions, 2)
+		assert.Equal(t, q1.ID, questions[0].ID)
+		assert.Equal(t, q1.QuestionText, questions[0].QuestionText)
+		assert.Equal(t, q2.ID, questions[1].ID)
+		assert.Equal(t, q2.QuestionText, questions[1].QuestionText)
+		t.Log("question", questions[0].QuestionText)
+		t.Log("question", questions[1].QuestionText)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, "/api/v1/iga/invalid-uuid/questions", nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/v1/iga/%s/questions", uuid.NewString()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+}
+
+func TestPostQuestionController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Questions Session for Posting")
+		questionText := "What is your favorite color?"
+		noteText := "Optional note for the question."
+		sortOrder := int16(1)
+
+		payload := postQuestionPayload{
+			QuestionText: questionText,
+			NoteText:     noteText,
+			SortOrder:    sortOrder,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/questions", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var questionResp postQuestionResponse
+		err = json.NewDecoder(res.Body).Decode(&questionResp)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, uuid.Nil, questionResp.ID)
+		assert.Equal(t, session.ID, questionResp.IGASessionID)
+		assert.NotEmpty(t, questionResp.ReadableID)
+		assert.Equal(t, questionText, questionResp.QuestionText)
+		assert.Equal(t, noteText, questionResp.NoteText)
+		assert.Equal(t, sortOrder, questionResp.SortOrder)
+
+		// verify the question is in the DB
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 1)
+		assert.Equal(t, questionResp.ID, questions[0].ID)
+		t.Log("question readable id", questionResp.ReadableID,
+			"question text", questionResp.QuestionText,
+			"note text", questionResp.NoteText,
+			"sort order", questionResp.SortOrder)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		payload := postQuestionPayload{
+			QuestionText: "test",
+			SortOrder:    1,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/iga/invalid-uuid/questions", payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		payload := postQuestionPayload{
+			QuestionText: "test",
+			SortOrder:    1,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/questions", uuid.NewString()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Questions Session")
+
+		intruder := ts.createTestUser(t, "intruder7@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		payload := postQuestionPayload{
+			QuestionText: "Intruder question",
+			SortOrder:    1,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/iga/%s/questions", ts.server.URL, otherUserSession.ID.String()), bytes.NewReader(payloadJSON))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("validation error (empty question text)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Validation Test Session")
+
+		payload := postQuestionPayload{
+			QuestionText: "", // empty question text
+			SortOrder:    1,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/questions", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeValueMissing, webErr.Fields[0].Code)
+		assert.Equal(t, "question_text", webErr.Fields[0].Field)
+
+		t.Log("Bad Request", res.StatusCode, "err", webErr.Code)
+	})
+}
+
+func TestPatchQuestionController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("patch question text success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Patch Question Session")
+		question := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Original Question Text")
+
+		newQuestionText := "Updated Question Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), question.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var patchedQuestion patchQuestionResponse
+		err = json.NewDecoder(res.Body).Decode(&patchedQuestion)
+		require.NoError(t, err)
+
+		assert.Equal(t, question.ID, patchedQuestion.ID)
+		assert.Equal(t, newQuestionText, patchedQuestion.QuestionText)
+
+		// verify the change in DB
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 1)
+		assert.Equal(t, newQuestionText, questions[0].QuestionText)
+		t.Log("new question text", questions[0].QuestionText)
+	})
+
+	t.Run("patch note text and sort order success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Patch Question Session 2")
+		question := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question for Notes")
+
+		newNoteText := "Updated Note Text"
+		newSortOrder := int16(5)
+		payload := patchQuestionPayload{NoteText: &newNoteText, SortOrder: &newSortOrder}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), question.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		var patchedQuestion patchQuestionResponse
+		err = json.NewDecoder(res.Body).Decode(&patchedQuestion)
+		require.NoError(t, err)
+
+		assert.Equal(t, question.ID, patchedQuestion.ID)
+		assert.Equal(t, newNoteText, patchedQuestion.NoteText)
+		assert.Equal(t, newSortOrder, patchedQuestion.SortOrder)
+
+		// verify the change in DB
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 1)
+		assert.Equal(t, newNoteText, questions[0].NoteText)
+		assert.Equal(t, newSortOrder, questions[0].SortOrder)
+		t.Log("question", questions[0].QuestionText, "sort order", questions[0].SortOrder)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		newQuestionText := "Updated Question Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/invalid-uuid/questions/%s", uuid.NewString()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("malformed question ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Malformed QID")
+
+		newQuestionText := "Updated Question Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/invalid-uuid", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		newQuestionText := "Updated Question Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", uuid.NewString(), uuid.NewString()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent question in existing session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Non-existent Question")
+
+		newQuestionText := "Updated Question Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), uuid.NewString()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Session for Patch")
+		otherUserQuestion := ts.createTestQuestion(t, ts.authedUser.ID, otherUserSession.ID, "Question for other user")
+
+		intruder := ts.createTestUser(t, "intruder8@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		newQuestionText := "Intruder's attempt to patch"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/api/v1/iga/%s/questions/%s", ts.server.URL, otherUserSession.ID.String(), otherUserQuestion.ID.String()), bytes.NewReader(payloadJSON))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("validation error (empty question text in patch)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Validation Patch Session")
+		question := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Original Question")
+
+		emptyQuestionText := "" // empty question text
+		payload := patchQuestionPayload{QuestionText: &emptyQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), question.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeValueMissing, webErr.Fields[0].Code)
+		assert.Equal(t, "question_text", webErr.Fields[0].Field)
+		t.Log("Bad Request", res.StatusCode)
+	})
+}
+
+func TestDeleteQuestionHandler(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Delete Question Session")
+		question := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question to Delete")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), question.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+		t.Log("No Content", res.StatusCode)
+
+		// verify the question is no longer in the DB
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		assert.Len(t, questions, 0)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/invalid-uuid/questions/%s", uuid.NewString()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("malformed question ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Malformed QID Delete")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/%s/questions/invalid-uuid", session.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		t.Log("Bad Request", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/%s/questions/%s", uuid.NewString(), uuid.NewString()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("not found (non-existent question in existing session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Non-existent Question Delete")
+
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), uuid.NewString()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Session for Delete")
+		otherUserQuestion := ts.createTestQuestion(t, ts.authedUser.ID, otherUserSession.ID, "Question for other user to delete")
+
+		intruder := ts.createTestUser(t, "intruder9@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v1/iga/%s/questions/%s", ts.server.URL, otherUserSession.ID.String(), otherUserQuestion.ID.String()), nil)
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		t.Log("Not Found", res.StatusCode)
+	})
+}
