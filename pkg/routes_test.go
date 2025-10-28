@@ -1,5 +1,8 @@
 package pkg
 
+// todo add automated testing in GitHub workflow
+// todo add more tests for user stuff (more register, login, logout, me)
+
 import (
 	"bytes"
 	"encoding/json"
