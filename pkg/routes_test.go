@@ -1,8 +1,5 @@
 package pkg
 
-// todo add automated testing in GitHub workflow
-// todo add more tests for user stuff (more register, login, logout, me)
-
 import (
 	"bytes"
 	"encoding/json"
@@ -12,6 +9,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -204,6 +202,202 @@ func TestRegister(t *testing.T) {
 	require.NoError(t, err, "can not decode json")
 	require.NotEmpty(t, reg.ID, "empty registration id")
 	t.Log("User ID", reg.ID)
+}
+
+func TestLogin(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		email := "login@test.com"
+		password := "password123"
+		ts.createTestUser(t, email, password)
+
+		payload, err := json.Marshal(loginPayload{
+			Email:    email,
+			Password: password,
+		})
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/login"), bytes.NewReader(payload))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.NotNil(t, res.Header.Get("Set-Cookie"))
+	})
+
+	t.Run("invalid credentials", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		email := "invalid@test.com"
+		password := "password123"
+		ts.createTestUser(t, email, password)
+
+		payload, err := json.Marshal(loginPayload{
+			Email:    email,
+			Password: "wrongpassword",
+		})
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/login"), bytes.NewReader(payload))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Equal(t, CodeInvalidCredentials, webErr.Code)
+	})
+
+	t.Run("non-existent user", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		payload, err := json.Marshal(loginPayload{
+			Email:    "nonexistent@test.com",
+			Password: "password123",
+		})
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/login"), bytes.NewReader(payload))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Equal(t, CodeInvalidCredentials, webErr.Code)
+	})
+
+	t.Run("validation error (missing email)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		payload, err := json.Marshal(loginPayload{
+			Email:    "",
+			Password: "password123",
+		})
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/login"), bytes.NewReader(payload))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeValueMissing, webErr.Fields[0].Code)
+		assert.Equal(t, "email", webErr.Fields[0].Field)
+	})
+}
+
+func TestLogout(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t) // this creates a session and sets a cookie
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, "/api/v1/user/logout", []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+
+		// verify that the session cookie is cleared
+		cookies := res.Cookies()
+		require.Len(t, cookies, 1)
+		assert.Equal(t, "session_id", cookies[0].Name)
+		assert.Equal(t, "", cookies[0].Value)
+		assert.True(t, cookies[0].MaxAge < 0 || cookies[0].Expires.Before(time.Now()))
+
+		// verify that the session is deleted from the database
+		_, err = ts.user.LoggedInUser(t.Context(), uuid.MustParse(ts.cookie.Value))
+		assert.Error(t, err) // session should be expired/not found
+	})
+
+	t.Run("no session cookie", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		req := ts.newUnauthenticatedRequest(t, http.MethodPost, "/api/v1/user/logout", []byte("{}"))
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		// no Set-Cookie header should be present to clear a non-existent cookie
+		assert.Empty(t, res.Header.Get("Set-Cookie"))
+	})
+
+	t.Run("malformed session ID in cookie", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s%s", ts.server.URL, "/api/v1/user/logout"), bytes.NewReader([]byte("{}")))
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: "invalid-uuid"})
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Equal(t, CodeMalformedRequestError, webErr.Code)
+	})
+}
+
+func TestMe(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodGet, "/api/v1/user/me", nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+
+		var meResp meResponse
+		err = json.NewDecoder(res.Body).Decode(&meResp)
+		require.NoError(t, err)
+		assert.Equal(t, ts.authedUser.ID, meResp.ID)
+		assert.Equal(t, ts.authedUser.Email, meResp.Email)
+		assert.Equal(t, ts.authedUser.FirstName, meResp.FirstName)
+		assert.Equal(t, ts.authedUser.LastName, meResp.LastName)
+	})
+
+	t.Run("unauthenticated", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		req := ts.newUnauthenticatedRequest(t, http.MethodGet, "/api/v1/user/me", nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	})
 }
 
 func TestCreateIGASession(t *testing.T) {
