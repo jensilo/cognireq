@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type FunctionalComponent, type SVGAttributes } from 'vue'
 import LogoutButton from '@/components/LogoutButton.vue'
 
 // explicitly import the icon components to ensure they are not tree-shaken.
@@ -10,7 +10,7 @@ const props = defineProps<{ isCollapsed: boolean }>()
 const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()
 
 // map the imported components to a lookup object.
-const iconMap = {
+const iconMap: Record<string, FunctionalComponent<SVGAttributes>> = {
   'i-heroicons-light-bulb': IHeroiconsLightBulb,
   'i-heroicons-information-circle': IHeroiconsInformationCircle,
 }
