@@ -55,7 +55,7 @@ defineExpose({ setChatInput })
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-neutral-50">
+  <div class="flex flex-col overflow-y-scroll bg-neutral-50">
     <!-- Chat Log Display -->
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
       <LoadingSpinner v-if="isLoadingChatLogs" />
