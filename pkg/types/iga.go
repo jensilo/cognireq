@@ -45,6 +45,10 @@ type IGASessionSystemMetadata struct {
 }
 
 func IntoIGASessionSystemMetadata(b []byte) (IGASessionSystemMetadata, error) {
+	if len(b) < 1 {
+		return IGASessionSystemMetadata{}, nil
+	}
+
 	var d IGASessionSystemMetadata
 	err := json.Unmarshal(b, &d)
 	if err != nil {
