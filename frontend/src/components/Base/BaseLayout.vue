@@ -26,7 +26,7 @@ const mainContentMargin = computed(() => (isSidebarCollapsed.value ? 'ml-16' : '
       <BaseHeader />
 
       <!-- Page Content Slot -->
-      <div class="p-6 flex-grow">
+      <div class="flex-grow">
         <slot />
       </div>
     </main>
