@@ -120,8 +120,8 @@ export const useIgaStore = defineStore('iga', () => {
     activeSessionId.value = id
   }
 
-  const clearActiveSession = async () => {
-    await cache.invalidateQueries({ key: ['iga', 'session', activeSessionId.value] })
+  const clearActiveSession = () => {
+    cache.invalidateQueries({ key: ['iga', 'session', activeSessionId.value] }).then()
     activeSessionId.value = null
   }
 

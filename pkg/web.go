@@ -99,7 +99,7 @@ func NewServer(logger *slog.Logger, services *Services) (*http.ServeMux, error) 
 }
 
 func AddAPIMiddlewares(getenv cfg.GetEnvFunc, mux *http.ServeMux) http.Handler {
-	return CORSMiddleware(getenv)(mux)
+	return TestThrottleMiddleware(CORSMiddleware(getenv)(mux))
 }
 
 // Validatable is a payload that can be validated.
@@ -267,6 +267,13 @@ func AuthMiddleware(logger *slog.Logger, service *UserService) func(http.Handler
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func TestThrottleMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		next.ServeHTTP(w, r)
+	})
 }
 
 func MustUserFromCtx(ctx context.Context) *types.User {

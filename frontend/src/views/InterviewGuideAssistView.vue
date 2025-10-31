@@ -36,7 +36,7 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
         <div class="bg-white shadow-sm p-4 border-b border-neutral-200">
           <div class="flex justify-between items-center mb-2">
             <h1 class="text-xl font-bold text-neutral-800">{{ activeSession?.project_name }}</h1>
-            <button @click="igaStore.clearActiveSession" class="text-sm text-indigo-600 hover:underline">
+            <button @click="igaStore.clearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline">
               Change Session
             </button>
           </div>
