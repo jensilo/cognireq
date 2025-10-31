@@ -54,6 +54,7 @@ const selectExistingSession = (sessionId: string) => {
         >
           <p class="font-medium">{{ session.project_name }}</p>
           <p class="text-sm text-neutral-500">Created: {{ new Date(session.created_at).toLocaleString() }}</p>
+          <p class="text-sm text-neutral-500">Updated: {{ new Date(session.updated_at).toLocaleString() }}</p>
         </li>
       </ul>
     </div>
@@ -64,7 +65,7 @@ const selectExistingSession = (sessionId: string) => {
 
     <button
       @click="showCreateForm = !showCreateForm"
-      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+      class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 cursor-pointer"
     >
       {{ showCreateForm ? 'Cancel' : 'Create New Session' }}
     </button>
@@ -103,7 +104,7 @@ const selectExistingSession = (sessionId: string) => {
         <button
           type="submit"
           :disabled="igaStore.isCreatingSession"
-          class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-green-400"
+          class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-green-400 cursor-pointer"
         >
           {{ igaStore.isCreatingSession ? 'Creating...' : 'Create Session' }}
         </button>
