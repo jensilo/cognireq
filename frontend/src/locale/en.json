@@ -38,5 +38,8 @@
 
     "CLIENT_NETWORK_CONNECTION_ERROR": "Could not connect to the server. Check your network.",
     "CLIENT_UNKNOWN_ERROR": "An unknown error occurred. Please try again."
+  },
+  "iga": {
+    "chat-input-placeholder": "Type your message or command..."
   }
 }
