@@ -18,17 +18,17 @@ const mainContentMargin = computed(() => (isSidebarCollapsed.value ? 'ml-16' : '
     <BaseNavbar :is-collapsed="isSidebarCollapsed" @toggle-sidebar="toggleSidebar" />
 
     <!-- Main Content Area -->
-    <main
-      class="flex-grow flex flex-col transition-all duration-300 ease-in-out overflow-y-auto"
+    <div
+      class="flex-grow flex flex-col transition-all duration-300 ease-in-out"
       :class="mainContentMargin"
     >
       <!-- Top Bar/Header -->
       <BaseHeader />
 
       <!-- Page Content Slot -->
-      <div class="flex-grow">
+      <main class="flex-grow overflow-y-auto">
         <slot />
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
