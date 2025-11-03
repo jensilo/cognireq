@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
-import type { IgaChatLogInstructionType, SendChatPayload } from '@/api/igaService.ts'
+import type { IgaChatLogInstructionType, SendChatPayload, IgaChatLog } from '@/api/igaService.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const props = defineProps<{ sessionId: string }>()
@@ -43,7 +43,7 @@ const retryMessage = async () => {
 }
 
 const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString('de-DE')
+  return new Date(timestamp).toLocaleString()
 }
 
 const setChatInput = (text: string, instruction: IgaChatLogInstructionType = 'message') => {
@@ -86,8 +86,9 @@ defineExpose({ setChatInput })
           >
             <p class="text-sm">{{ log.message_text }}</p>
             <p class="text-xs mt-1 opacity-75">{{ formatTimestamp(log.created_at) }}</p>
+            <LoadingSpinner v-if="(log as IgaChatLog).is_optimistic" class="mt-2 w-4 h-4" />
             <button
-              v-if="log.role === 'assistant' && log.metadata.type === 'message' && !isRetryingChatMessage"
+              v-else-if="log.role === 'assistant' && log.metadata.type === 'message' && !isRetryingChatMessage"
               @click="retryMessage"
               class="mt-2 text-xs text-white/80 hover:text-white underline cursor-pointer"
             >
@@ -113,6 +114,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
+          :disabled="isSendingChatMessage || isRetryingChatMessage"
         >
           Message
         </button>
@@ -124,6 +126,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
+          :disabled="isSendingChatMessage || isRetryingChatMessage"
         >
           Refine Question
         </button>
@@ -135,6 +138,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
+          :disabled="isSendingChatMessage || isRetryingChatMessage"
         >
           Refine Context
         </button>
