@@ -2,7 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LandingPageView from '@/views/LandingPageView.vue'
 import { type Composer, type I18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/authStore.ts'
-import InterviewGuideAssistView from '@/views/InterviewGuideAssistView.vue'
+import IgaSessionListView from '@/views/IgaSessionListView.vue'
+import IgaActiveSessionView from '@/views/IgaActiveSessionView.vue'
+import IgaCreateSessionView from "@/views/IgaCreateSessionView.vue";
 import ProfileView from '@/views/ProfileView.vue'
 
 const PUBLIC_AUTH_ROUTES = ['/', '/login', '/register']
@@ -22,12 +24,23 @@ const router = createRouter({
     },
     {
       path: '/app',
-      redirect: '/interview-guide-assist',
+      redirect: '/iga',
     },
     {
-      path: '/interview-guide-assist',
-      name: 'interview-guide-assist',
-      component: InterviewGuideAssistView,
+      path: '/iga',
+      name: 'iga-list',
+      component: IgaSessionListView,
+    },
+    {
+      path: '/iga/:id',
+      name: 'iga-active',
+      component: IgaActiveSessionView,
+      props: true,
+    },
+    {
+      path: '/iga/new',
+      name: 'iga-create',
+      component: IgaCreateSessionView,
     },
     {
       path: '/profile',
