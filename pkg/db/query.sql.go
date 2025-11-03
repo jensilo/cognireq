@@ -237,7 +237,7 @@ const iGAChatLogsBySessionID = `-- name: IGAChatLogsBySessionID :many
 SELECT iga_chat_logs.id, iga_chat_logs.iga_session_id, iga_chat_logs.role, iga_chat_logs.message_text, iga_chat_logs.metadata, iga_chat_logs.created_at FROM iga_chat_logs
 INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
 WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
-ORDER BY iga_chat_logs.created_at DESC
+ORDER BY iga_chat_logs.created_at
 `
 
 type IGAChatLogsBySessionIDParams struct {
@@ -389,7 +389,7 @@ const iGASessionsByUser = `-- name: IGASessionsByUser :many
 
 SELECT id, user_id, project_name, context_data, system_metadata, created_at, updated_at FROM iga_sessions
 WHERE user_id = $1
-ORDER BY updated_at DESC
+ORDER BY updated_at DESC, created_at DESC
 `
 
 // -

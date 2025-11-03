@@ -6,7 +6,7 @@ import IgaChatInterface from '@/components/IgaChatInterface.vue'
 import IgaQuestionnaireArtifact from '@/components/IgaQuestionnaireArtifact.vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import { computed, ref } from 'vue'
-import type {IgaChatLogInstructionType} from "@/api/igaService.ts";
+import type { IgaChatLogInstructionType, UpdateIgaSessionPayload } from '@/api/igaService.ts'
 
 const igaStore = useIgaStore()
 
@@ -19,6 +19,24 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
     chatInterfaceRef.value.setChatInput(text, instruction)
   }
   showChatOnMobile.value = true // show chat when citing/refining
+}
+
+const handleClearActiveSession = () => {
+  igaStore.clearActiveSession()
+}
+
+const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary', value: string) => {
+  if (!igaStore.activeSessionId || !activeSession.value) return
+
+  const currentContext = activeSession.value.context_data
+  const payload: UpdateIgaSessionPayload = {
+    context_data: { ...currentContext, [field]: value },
+  }
+  await igaStore.updateIgaSession({ id: igaStore.activeSessionId, payload })
+}
+
+const refineContext = (contextType: string) => {
+  setChatInput(`Refine the ${contextType}: `, 'refine-context')
 }
 </script>
 
@@ -36,14 +54,42 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
         <div class="bg-white shadow-sm p-4 border-b border-neutral-200">
           <div class="flex justify-between items-center mb-2">
             <h1 class="text-xl font-bold text-neutral-800">{{ activeSession?.project_name }}</h1>
-            <button @click="igaStore.clearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline">
+            <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline">
               Change Session
             </button>
           </div>
-          <div class="text-sm text-neutral-600 mb-2">
-            <p><strong>Stakeholder Summary:</strong> {{ activeSession?.context_data.stakeholder_summary }}</p>
-            <p><strong>Project Summary:</strong> {{ activeSession?.context_data.project_summary }}</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="p-3 border rounded-lg bg-neutral-50">
+              <h2 class="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
+                Stakeholder Summary
+                <button @click="refineContext('stakeholder summary')" class="text-indigo-600 hover:text-indigo-800 text-xs cursor-pointer">
+                  AI Enhance
+                </button>
+              </h2>
+              <textarea
+                v-model="activeSession.context_data.stakeholder_summary"
+                @blur="updateSessionContext('stakeholder_summary', activeSession.context_data.stakeholder_summary)"
+                class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                rows="2"
+              ></textarea>
+            </div>
+            <div class="p-3 border rounded-lg bg-neutral-50">
+              <h2 class="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
+                Project Summary
+                <button @click="refineContext('project summary')" class="text-indigo-600 hover:text-indigo-800 text-xs cursor-pointer">
+                  AI Enhance
+                </button>
+              </h2>
+              <textarea
+                v-model="activeSession.context_data.project_summary"
+                @blur="updateSessionContext('project_summary', activeSession.context_data.project_summary)"
+                class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                rows="2"
+              ></textarea>
+            </div>
           </div>
+
           <div class="text-xs text-neutral-400">
             <p>Created: {{ activeSession?.created_at ? new Date(activeSession.created_at).toLocaleString() : '' }}</p>
             <p>Updated: {{ activeSession?.updated_at ? new Date(activeSession.updated_at).toLocaleString() : '' }}</p>
@@ -87,7 +133,7 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
               { 'flex': !showChatOnMobile },
             ]"
           >
-            <IgaQuestionnaireArtifact :session-id="igaStore.activeSessionId" :set-chat-input="setChatInput" />
+            <IgaQuestionnaireArtifact :session-id="igaStore.activeSessionId" :set-chat-input="setChatInput" :refine-context="refineContext" />
           </div>
         </div>
       </div>

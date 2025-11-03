@@ -314,6 +314,7 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 	//  - Fetch conversation history.
 	//  - Call NLP service.
 	//  - For now, we'll just create a stubbed response.
+	time.Sleep(100 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,
@@ -355,6 +356,7 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 	//  have been interrupted prematurely.
 	//  - The history to send to the model would be `logs[1:]` or `logs` (excluding the last assistant message if available).
 	//  - For now, we'll just create a new stubbed response.
+	time.Sleep(100 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,
