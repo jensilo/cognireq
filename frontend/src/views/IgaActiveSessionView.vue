@@ -3,6 +3,7 @@ import BaseLayout from '@/components/Base/BaseLayout.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaChatInterface from '@/components/IgaChatInterface.vue'
 import IgaQuestionnaireArtifact from '@/components/IgaQuestionnaireArtifact.vue'
+import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -42,12 +43,19 @@ const handleClearActiveSession = () => {
   router.push('/iga')
 }
 
-const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => {
+const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', newValue: string) => {
   if (!sessionId.value || !igaStore.activeSession) return
+
+  const currentValue = igaStore.activeSession.context_data[field]
+
+  // Only update if the value has actually changed (ignoring leading/trailing whitespace)
+  if (newValue.trim() === currentValue.trim()) {
+    return // No change, do nothing
+  }
 
   const currentContext = igaStore.activeSession.context_data
   const payload: UpdateIgaSessionPayload = {
-    context_data: { ...currentContext, [field]: value },
+    context_data: { ...currentContext, [field]: newValue },
   }
 
   await igaStore.updateIgaSession({ id: sessionId.value, payload })
@@ -88,39 +96,27 @@ const refineContext = (contextType: string) => {
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div class="p-3 border rounded-lg bg-neutral-50">
-              <h2 class="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
-                Stakeholder Summary
-                <button @click="refineContext('stakeholder summary')" class="text-indigo-600 hover:text-indigo-800 text-xs cursor-pointer">
-                  AI Enhance
-                </button>
-              </h2>
-              <textarea
-                v-model="igaStore.activeSession.context_data.stakeholder_summary"
-                @blur="updateSessionContext('stakeholder_summary', igaStore.activeSession.context_data.stakeholder_summary)"
-                class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                rows="2"
-              ></textarea>
-            </div>
-            <div class="p-3 border rounded-lg bg-neutral-50">
-              <h2 class="text-sm font-medium text-neutral-700 mb-1 flex items-center justify-between">
-                Project Summary
-                <button @click="refineContext('project summary')" class="text-indigo-600 hover:text-indigo-800 text-xs cursor-pointer">
-                  AI Enhance
-                </button>
-              </h2>
-              <textarea
-                v-model="igaStore.activeSession.context_data.project_summary"
-                @blur="updateSessionContext('project_summary', igaStore.activeSession.context_data.project_summary)"
-                class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                rows="2"
-              ></textarea>
-            </div>
+            <IgaContextEditableField
+              label="Stakeholder Summary"
+              :model-value="igaStore.activeSession.context_data.stakeholder_summary"
+              @updateField="updateSessionContext('stakeholder_summary', $event)"
+              :on-refine="refineContext"
+              context-type="stakeholder summary"
+              rows="2"
+            />
+            <IgaContextEditableField
+              label="Project Summary"
+              :model-value="igaStore.activeSession.context_data.project_summary"
+              @updateField="updateSessionContext('project_summary', $event)"
+              :on-refine="refineContext"
+              context-type="project summary"
+              rows="2"
+            />
           </div>
 
           <div class="text-xs text-neutral-400">
-            <p>Created: {{ igaStore.activeSession?.created_at ? new Date(igaStore.activeSession.created_at).toLocaleString() : '' }}</p>
-            <p>Updated: {{ igaStore.activeSession?.updated_at ? new Date(igaStore.activeSession.updated_at).toLocaleString() : '' }}</p>
+            <p>Created: {{ igaStore.activeSession?.created_at ? new Date(igaStore.activeSession.created_at).toLocaleString('de-DE') : '' }}</p>
+            <p v-if="igaStore.activeSession?.updated_at">Updated: {{ igaStore.activeSession?.updated_at ? new Date(igaStore.activeSession.updated_at).toLocaleString('de-DE') : '' }}</p>
           </div>
         </div>
 
@@ -145,7 +141,7 @@ const refineContext = (contextType: string) => {
           <!-- Left Pane: Chat Interface -->
           <div
             :class="[
-              'w-full md:w-1/3 flex-col bg-neutral-50',
+              'w-full md:w-1/2 flex-col bg-neutral-50',
               { 'hidden md:flex': !showChatOnMobile },
               { 'flex': showChatOnMobile },
             ]"
@@ -156,7 +152,7 @@ const refineContext = (contextType: string) => {
           <!-- Right Pane: Questionnaire Artifact -->
           <div
             :class="[
-              'w-full md:w-2/3 flex-col bg-white',
+              'w-full md:w-1/2 flex-col bg-white border-l border-neutral-200',
               { 'hidden md:flex': showChatOnMobile },
               { 'flex': !showChatOnMobile },
             ]"

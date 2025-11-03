@@ -5,6 +5,7 @@ import LogoutButton from '@/components/LogoutButton.vue'
 // explicitly import the icon components to ensure they are not tree-shaken.
 import IHeroiconsLightBulb from '~icons/heroicons/light-bulb'
 import IHeroiconsInformationCircle from '~icons/heroicons/information-circle'
+import IHeroiconsSparkles from '~icons/heroicons/sparkles'
 
 const props = defineProps<{ isCollapsed: boolean }>()
 const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()
@@ -13,6 +14,7 @@ const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()
 const iconMap: Record<string, FunctionalComponent<SVGAttributes>> = {
   'i-heroicons-light-bulb': IHeroiconsLightBulb,
   'i-heroicons-information-circle': IHeroiconsInformationCircle,
+  'i-heroicons-sparkles': IHeroiconsSparkles,
 }
 
 const navItems = [

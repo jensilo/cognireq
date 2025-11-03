@@ -58,15 +58,20 @@ func intoIGASession(session db.IgaSession) (types.IGASession, error) {
 		return types.IGASession{}, fmt.Errorf("failed to parse system metadata for IGA session %s: %w", session.ID, err)
 	}
 
-	return types.IGASession{
+	sess := types.IGASession{
 		ID:             session.ID,
 		UserID:         session.UserID,
 		ProjectName:    session.ProjectName,
 		ContextData:    contextData,
 		SystemMetadata: systemMetadata,
 		CreatedAt:      session.CreatedAt.Time,
-		UpdatedAt:      session.UpdatedAt.Time,
-	}, nil
+	}
+
+	if session.UpdatedAt.Valid {
+		sess.UpdatedAt = &session.UpdatedAt.Time
+	}
+
+	return sess, nil
 }
 
 func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
@@ -121,7 +126,7 @@ func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessi
 		ContextData:    contextData,
 		SystemMetadata: systemMetadata,
 		CreatedAt:      session.CreatedAt.Time,
-		UpdatedAt:      session.CreatedAt.Time,
+		UpdatedAt:      nil,
 	}, nil
 }
 

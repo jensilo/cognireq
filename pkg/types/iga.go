@@ -74,7 +74,7 @@ type IGASession struct {
 	ContextData    IGASessionContextData
 	SystemMetadata IGASessionSystemMetadata
 	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	UpdatedAt      *time.Time
 }
 
 type IGASessionToCreate struct {
