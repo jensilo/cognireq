@@ -13,7 +13,6 @@ declare module 'vue' {
     BaseNavbar: typeof import('./src/components/Base/BaseNavbar.vue')['default']
     IgaChatInterface: typeof import('./src/components/IgaChatInterface.vue')['default']
     IgaQuestionnaireArtifact: typeof import('./src/components/IgaQuestionnaireArtifact.vue')['default']
-    IgaSessionSelector: typeof import('./src/components/IgaSessionSelector.vue')['default']
     IHeroiconsArrowRightStartOnRectangle: typeof import('~icons/heroicons/arrow-right-start-on-rectangle')['default']
     IHeroiconsBoltSolid: typeof import('~icons/heroicons/bolt-solid')['default']
     IHeroiconsChevronDoubleLeft: typeof import('~icons/heroicons/chevron-double-left')['default']
