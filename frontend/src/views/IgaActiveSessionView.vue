@@ -4,7 +4,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaChatInterface from '@/components/IgaChatInterface.vue'
 import IgaQuestionnaireArtifact from '@/components/IgaQuestionnaireArtifact.vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { IgaChatLogInstructionType, UpdateIgaSessionPayload } from '@/api/igaService.ts'
 
@@ -13,6 +13,19 @@ const route = useRoute()
 const router = useRouter()
 
 const sessionId = computed(() => route.params.id as string)
+
+// Set active session in store on mount and when sessionId changes
+onMounted(() => {
+  if (sessionId.value) {
+    igaStore.selectSession(sessionId.value)
+  }
+})
+
+watch(sessionId, (newSessionId) => {
+  if (newSessionId) {
+    igaStore.selectSession(newSessionId)
+  }
+})
 
 const chatInterfaceRef = ref<InstanceType<typeof IgaChatInterface> | null>(null)
 const showChatOnMobile = ref(false)
@@ -25,6 +38,7 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
 }
 
 const handleClearActiveSession = () => {
+  igaStore.clearActiveSession()
   router.push('/iga')
 }
 
