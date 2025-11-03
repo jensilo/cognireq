@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
-import type { UpdateIgaScriptQuestionPayload, IgaScriptQuestion } from '@/api/igaService.ts'
+import type { IgaScriptQuestion, UpdateIgaScriptQuestionPayload } from '@/api/igaService.ts'
 
 const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: string) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
 
@@ -18,13 +18,14 @@ const editedQuestionText = ref('')
 const editedNoteText = ref('')
 
 const startEditingQuestion = (question: IgaScriptQuestion) => {
+  if (igaStore.isSendingChatMessage) return // prevent editing while chat is sending
   editingQuestionId.value = question.id
   editedQuestionText.value = question.question_text
   editedNoteText.value = question.note_text
 }
 
 const saveQuestionEdit = async (questionId: string) => {
-  if (!props.sessionId || !questionId) return
+  if (!props.sessionId || !questionId || igaStore.isSendingChatMessage) return
 
   const payload: UpdateIgaScriptQuestionPayload = {
     question_text: editedQuestionText.value,
@@ -40,6 +41,7 @@ const cancelQuestionEdit = () => {
 }
 
 const citeQuestion = (readableId: string) => {
+  if (igaStore.isSendingChatMessage) return // prevent citing while chat is sending
   props.setChatInput(`Concerning question ${readableId}: `, 'refine-question')
 }
 </script>
@@ -57,6 +59,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="interview goal"
         class="mb-6"
+        :disabled="igaStore.isSendingChatMessage"
       />
 
       <!-- General Interview Advice -->
@@ -67,6 +70,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
+        :disabled="igaStore.isSendingChatMessage"
       />
 
       <!-- Questions/Notes List -->
@@ -80,6 +84,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  :disabled="igaStore.isSendingChatMessage"
                 >
                   Cite
                 </button>
@@ -87,6 +92,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  :disabled="igaStore.isSendingChatMessage"
                 >
                   Edit
                 </button>
@@ -94,6 +100,7 @@ const citeQuestion = (readableId: string) => {
                   v-else
                   @click="saveQuestionEdit(question.id)"
                   class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
+                  :disabled="igaStore.isSendingChatMessage"
                 >
                   Save
                 </button>
@@ -101,6 +108,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+                  :disabled="igaStore.isSendingChatMessage"
                 >
                   Cancel
                 </button>
@@ -113,12 +121,14 @@ const citeQuestion = (readableId: string) => {
                 v-model="editedQuestionText"
                 class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
+                :disabled="igaStore.isSendingChatMessage"
               ></textarea>
               <label class="block text-sm font-medium text-neutral-700">Note Text</label>
               <textarea
                 v-model="editedNoteText"
                 class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
+                :disabled="igaStore.isSendingChatMessage"
               ></textarea>
             </div>
             <div v-else>
