@@ -539,6 +539,33 @@ func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const updatedIGASession = `-- name: UpdatedIGASession :one
+UPDATE iga_sessions
+SET updated_at = CURRENT_TIMESTAMP
+WHERE id = $2 AND user_id = $1
+RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
+`
+
+type UpdatedIGASessionParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdatedIGASession(ctx context.Context, arg UpdatedIGASessionParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, updatedIGASession, arg.UserID, arg.ID)
+	var i IgaSession
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectName,
+		&i.ContextData,
+		&i.SystemMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const userByEmail = `-- name: UserByEmail :one
 SELECT id, email, first_name, last_name, password, active, last_login, created_at, updated_at FROM users
 WHERE email = $1 AND active = true LIMIT 1
