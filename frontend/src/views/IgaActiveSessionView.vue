@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import BaseLayout from '@/components/Base/BaseLayout.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import IgaSessionSelector from '@/components/IgaSessionSelector.vue'
 import IgaChatInterface from '@/components/IgaChatInterface.vue'
 import IgaQuestionnaireArtifact from '@/components/IgaQuestionnaireArtifact.vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { IgaChatLogInstructionType, UpdateIgaSessionPayload } from '@/api/igaService.ts'
 
 const igaStore = useIgaStore()
+const route = useRoute()
+const router = useRouter()
 
-const activeSession = computed(() => igaStore.activeSession)
+const sessionId = computed(() => route.params.id as string)
+
 const chatInterfaceRef = ref<InstanceType<typeof IgaChatInterface> | null>(null)
 const showChatOnMobile = ref(false)
 
@@ -22,17 +25,18 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
 }
 
 const handleClearActiveSession = () => {
-  igaStore.clearActiveSession()
+  router.push('/iga')
 }
 
-const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary', value: string) => {
-  if (!igaStore.activeSessionId || !activeSession.value) return
+const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => {
+  if (!sessionId.value || !igaStore.activeSession) return
 
-  const currentContext = activeSession.value.context_data
+  const currentContext = igaStore.activeSession.context_data
   const payload: UpdateIgaSessionPayload = {
     context_data: { ...currentContext, [field]: value },
   }
-  await igaStore.updateIgaSession({ id: igaStore.activeSessionId, payload })
+
+  await igaStore.updateIgaSession({ id: sessionId.value, payload })
 }
 
 const refineContext = (contextType: string) => {
@@ -43,17 +47,27 @@ const refineContext = (contextType: string) => {
 <template>
   <BaseLayout>
     <div class="flex flex-col h-full">
-      <LoadingSpinner v-if="igaStore.isLoadingSessions" />
+      <LoadingSpinner v-if="igaStore.isLoadingActiveSession" />
 
-      <div v-else-if="!igaStore.activeSessionId">
-        <IgaSessionSelector />
+      <div v-else-if="igaStore.errorActiveSession" class="p-4 text-center text-red-500">
+        <p>Error loading session: {{ igaStore.errorActiveSession.message }}</p>
+        <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
+          Go to Session List
+        </button>
+      </div>
+
+      <div v-else-if="!igaStore.activeSession" class="p-4 text-center text-red-500">
+        <p>Session not found.</p>
+        <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
+          Go to Session List
+        </button>
       </div>
 
       <div v-else class="flex flex-col h-full">
         <!-- Header for IGA Session Context -->
         <div class="bg-white shadow-sm p-4 border-b border-neutral-200">
           <div class="flex justify-between items-center mb-2">
-            <h1 class="text-xl font-bold text-neutral-800">{{ activeSession?.project_name }}</h1>
+            <h1 class="text-xl font-bold text-neutral-800">{{ igaStore.activeSession?.project_name }}</h1>
             <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline">
               Change Session
             </button>
@@ -68,8 +82,8 @@ const refineContext = (contextType: string) => {
                 </button>
               </h2>
               <textarea
-                v-model="activeSession.context_data.stakeholder_summary"
-                @blur="updateSessionContext('stakeholder_summary', activeSession.context_data.stakeholder_summary)"
+                v-model="igaStore.activeSession.context_data.stakeholder_summary"
+                @blur="updateSessionContext('stakeholder_summary', igaStore.activeSession.context_data.stakeholder_summary)"
                 class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 rows="2"
               ></textarea>
@@ -82,8 +96,8 @@ const refineContext = (contextType: string) => {
                 </button>
               </h2>
               <textarea
-                v-model="activeSession.context_data.project_summary"
-                @blur="updateSessionContext('project_summary', activeSession.context_data.project_summary)"
+                v-model="igaStore.activeSession.context_data.project_summary"
+                @blur="updateSessionContext('project_summary', igaStore.activeSession.context_data.project_summary)"
                 class="w-full p-1 border rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 rows="2"
               ></textarea>
@@ -91,8 +105,8 @@ const refineContext = (contextType: string) => {
           </div>
 
           <div class="text-xs text-neutral-400">
-            <p>Created: {{ activeSession?.created_at ? new Date(activeSession.created_at).toLocaleString() : '' }}</p>
-            <p>Updated: {{ activeSession?.updated_at ? new Date(activeSession.updated_at).toLocaleString() : '' }}</p>
+            <p>Created: {{ igaStore.activeSession?.created_at ? new Date(igaStore.activeSession.created_at).toLocaleString() : '' }}</p>
+            <p>Updated: {{ igaStore.activeSession?.updated_at ? new Date(igaStore.activeSession.updated_at).toLocaleString() : '' }}</p>
           </div>
         </div>
 
@@ -122,7 +136,7 @@ const refineContext = (contextType: string) => {
               { 'flex': showChatOnMobile },
             ]"
           >
-            <IgaChatInterface ref="chatInterfaceRef" :session-id="igaStore.activeSessionId" />
+            <IgaChatInterface ref="chatInterfaceRef" :session-id="sessionId" />
           </div>
 
           <!-- Right Pane: Questionnaire Artifact -->
@@ -133,7 +147,7 @@ const refineContext = (contextType: string) => {
               { 'flex': !showChatOnMobile },
             ]"
           >
-            <IgaQuestionnaireArtifact :session-id="igaStore.activeSessionId" :set-chat-input="setChatInput" :refine-context="refineContext" />
+            <IgaQuestionnaireArtifact :session-id="sessionId" :set-chat-input="setChatInput" :refine-context="refineContext" :update-session-context="updateSessionContext" />
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ const iconMap: Record<string, FunctionalComponent<SVGAttributes>> = {
 const navItems = [
   {
     name: 'Interview Guide Assist',
-    to: { name: 'interview-guide-assist' },
+    to: { name: 'iga-list' },
     iconKey: 'i-heroicons-light-bulb',
   },
   { name: 'About', to: { name: 'about' }, iconKey: 'i-heroicons-information-circle' },

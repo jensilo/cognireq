@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import { CreateIgaSessionPayload } from '@/api/igaService.ts'
+import type { CreateIgaSessionPayload } from '@/api/igaService.ts'
 
 const igaStore = useIgaStore()
 
