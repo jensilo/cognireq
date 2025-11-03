@@ -292,6 +292,11 @@ func (is *IGAService) CreateMessage(
 		return nil, err
 	}
 
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
 	return &converted, nil
 }
 
@@ -335,6 +340,11 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 		return nil, err
 	}
 
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
 	converted, err := intoIGAChatLog(assistantLog)
 	if err != nil {
 		return nil, err
@@ -372,6 +382,11 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
