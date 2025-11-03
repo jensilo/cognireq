@@ -2,12 +2,10 @@
 import { ref, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import type {
-  UpdateIgaSessionPayload, IgaScriptQuestion, UpdateIgaScriptQuestionPayload,
-  IgaChatLogInstructionType
-} from '@/api/igaService.ts'
+import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
+import type { UpdateIgaScriptQuestionPayload, IgaScriptQuestion } from '@/api/igaService.ts'
 
-const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: IgaChatLogInstructionType) => void; refineContext: (contextType: string) => void }>()
+const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: string) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
 
 const igaStore = useIgaStore()
 
@@ -44,16 +42,6 @@ const cancelQuestionEdit = () => {
 const citeQuestion = (readableId: string) => {
   props.setChatInput(`Concerning question ${readableId}: `, 'refine-question')
 }
-
-const updateSessionContext = async (field: 'interview_goal' | 'interview_advice', value: string) => {
-  if (!props.sessionId || !activeSession.value) return
-
-  const currentContext = activeSession.value.context_data
-  const payload: UpdateIgaSessionPayload = {
-    context_data: { ...currentContext, [field]: value },
-  }
-  await igaStore.updateIgaSession({ id: props.sessionId, payload })
-}
 </script>
 
 <template>
@@ -62,36 +50,24 @@ const updateSessionContext = async (field: 'interview_goal' | 'interview_advice'
 
     <div v-else-if="activeSession">
       <!-- Interview Goal -->
-      <div class="mb-6 p-5 border border-gray-200 rounded-lg shadow-sm bg-white">
-        <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center justify-between">
-          Interview Goal
-          <button @click="refineContext('interview goal')" class="text-indigo-600 hover:text-indigo-800 text-sm cursor-pointer">
-            AI Enhance
-          </button>
-        </h2>
-        <textarea
-          v-model="activeSession.context_data.interview_goal"
-          @blur="updateSessionContext('interview_goal', activeSession.context_data.interview_goal)"
-          class="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
-          rows="3"
-        ></textarea>
-      </div>
+      <IgaContextEditableField
+        label="Interview Goal"
+        :model-value="activeSession.context_data.interview_goal"
+        @updateField="props.updateSessionContext('interview_goal', $event)"
+        :on-refine="props.refineContext"
+        context-type="interview goal"
+        class="mb-6"
+      />
 
       <!-- General Interview Advice -->
-      <div class="mb-6 p-5 border border-gray-200 rounded-lg shadow-sm bg-white">
-        <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center justify-between">
-          General Interview Advice
-          <button @click="refineContext('general interview advice')" class="text-indigo-600 hover:text-indigo-800 text-sm cursor-pointer">
-            AI Enhance
-          </button>
-        </h2>
-        <textarea
-          v-model="activeSession.context_data.interview_advice"
-          @blur="updateSessionContext('interview_advice', activeSession.context_data.interview_advice)"
-          class="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
-          rows="3"
-        ></textarea>
-      </div>
+      <IgaContextEditableField
+        label="General Interview Advice"
+        :model-value="activeSession.context_data.interview_advice"
+        @updateField="props.updateSessionContext('interview_advice', $event)"
+        :on-refine="props.refineContext"
+        context-type="general interview advice"
+        class="mb-6"
+      />
 
       <!-- Questions/Notes List -->
       <div class="mb-6">

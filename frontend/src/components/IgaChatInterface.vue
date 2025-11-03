@@ -43,7 +43,7 @@ const retryMessage = async () => {
 }
 
 const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString()
+  return new Date(timestamp).toLocaleString('de-DE')
 }
 
 const setChatInput = (text: string, instruction: IgaChatLogInstructionType = 'message') => {

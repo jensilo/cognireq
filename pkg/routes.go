@@ -286,7 +286,7 @@ type igaSessionResponse struct {
 	ProjectName string                   `json:"project_name"`
 	ContextData APIIgaSessionContextData `json:"context_data"`
 	CreatedAt   time.Time                `json:"created_at"`
-	UpdatedAt   time.Time                `json:"updated_at"`
+	UpdatedAt   *time.Time               `json:"updated_at"`
 }
 
 type getIGAResponse []igaSessionResponse

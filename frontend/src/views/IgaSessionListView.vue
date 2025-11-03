@@ -30,8 +30,8 @@ const navigateToCreateSession = () => {
       </div>
 
       <div v-else-if="igaStore.errorSessions" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6">
-        <strong class="font-bold">Error!</strong>
-        <span class="block sm:inline"> {{ igaStore.errorSessions.message }}</span>
+        <strong class="font-bold">Error! </strong>
+        <span class="block sm:inline"> {{ $t(igaStore.errorSessions.message) }}</span>
       </div>
 
       <div v-else-if="hasSessions" class="mb-8">
@@ -45,10 +45,10 @@ const navigateToCreateSession = () => {
           >
             <h3 class="text-xl font-bold text-indigo-700 mb-2">{{ session.project_name }}</h3>
             <p class="text-sm text-gray-600 mb-1">
-              <span class="font-medium">Created:</span> {{ new Date(session.created_at).toLocaleString() }}
+              <span class="font-medium">Created:</span> {{ new Date(session.created_at).toLocaleString('de-DE') }}
             </p>
             <p class="text-sm text-gray-600">
-              <span class="font-medium">Updated:</span> {{ new Date(session.updated_at).toLocaleString() }}
+              <span class="font-medium">Updated:</span> {{ session.updated_at ? new Date(session.updated_at).toLocaleString('de-DE') : 'not yet' }}
             </p>
           </div>
         </div>
