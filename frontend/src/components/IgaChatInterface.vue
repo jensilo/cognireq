@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick, watch, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
-import type { IgaChatLogInstructionType, SendChatPayload, IgaChatLog } from '@/api/igaService.ts'
+import type { IgaChatLogInstructionType, SendChatPayload } from '@/api/igaService.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const props = defineProps<{ sessionId: string }>()
@@ -62,7 +62,7 @@ defineExpose({ setChatInput })
   <div class="flex flex-col h-full bg-neutral-50">
     <!-- Chat Log Display -->
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
-      <LoadingSpinner v-if="isLoadingChatLogs" />
+      <LoadingSpinner v-if="isLoadingChatLogs && chatLogs && chatLogs.length < 1" />
       <div v-else-if="chatLogs && chatLogs.length > 0">
         <div
           v-for="log in chatLogs"

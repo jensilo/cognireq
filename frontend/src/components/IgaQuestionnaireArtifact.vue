@@ -11,7 +11,9 @@ const igaStore = useIgaStore()
 
 const activeSession = computed(() => igaStore.activeSession)
 const igaQuestions = computed(() => igaStore.igaQuestions)
+const isLoadingActiveSession = computed(() => igaStore.isLoadingActiveSession)
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
+const isSendingMessage = computed(() => igaStore.isSendingChatMessage || igaStore.isRetryingChatMessage)
 
 const editingQuestionId = ref<string | null>(null)
 const editedQuestionText = ref('')
@@ -48,7 +50,7 @@ const citeQuestion = (readableId: string) => {
 
 <template>
   <div class="flex flex-col h-full bg-white p-4 overflow-y-auto">
-    <LoadingSpinner v-if="isLoadingQuestions" />
+    <LoadingSpinner v-if="isLoadingQuestions && !activeSession" />
 
     <div v-else-if="activeSession">
       <!-- Interview Goal -->
@@ -59,7 +61,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="interview goal"
         class="mb-6"
-        :loading="igaStore.isSendingChatMessage"
+        :loading="isLoadingActiveSession || isSendingMessage"
       />
 
       <!-- General Interview Advice -->
@@ -70,7 +72,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
-        :loading="igaStore.isSendingChatMessage"
+        :loading="isLoadingActiveSession || isSendingMessage"
       />
 
       <!-- Questions/Notes List -->
