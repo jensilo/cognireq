@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import {ref, watch, onMounted, type PropType} from 'vue'
 import IHeroiconsSparkles from '~icons/heroicons/sparkles'
 
 const props = defineProps({
@@ -9,6 +9,7 @@ const props = defineProps({
   rows: { type: Number, default: 2 },
   onRefine: { type: Function as PropType<(contextType: string) => void>, required: true },
   contextType: { type: String, required: true },
+  loading: { type: Boolean, required: true }
 })
 
 const emit = defineEmits(['updateField'])
@@ -44,6 +45,8 @@ const handleBlur = () => {
       @blur="handleBlur"
       :placeholder="placeholder"
       :rows="rows"
+      :disabled="loading"
+      :class="{ 'cursor-progress': loading }"
       class="w-full p-1 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
     ></textarea>
   </div>
