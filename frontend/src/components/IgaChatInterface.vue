@@ -12,7 +12,8 @@ const selectedInstruction = ref<IgaChatLogInstructionType | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 
 const chatLogs = computed(() => igaStore.igaChatLogs)
-const isLoadingChatLogs = computed(() => igaStore.isLoadingChatLogs)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
+
 
 watch(chatLogs, () => {
   nextTick(() => {
@@ -35,14 +36,8 @@ const sendMessage = async () => {
   selectedInstruction.value = null
 }
 
-const retryMessage = async () => {
-  if (!props.sessionId) return
-  await igaStore.retryIgaChatMessage(props.sessionId)
-}
 
-const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString()
-}
+
 
 const setChatInput = (text: string, instruction: IgaChatLogInstructionType = 'message') => {
   chatInput.value = text
@@ -60,7 +55,7 @@ defineExpose({ setChatInput })
   <div class="flex flex-col h-full bg-neutral-50">
     <!-- Chat Log Display -->
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
-      <LoadingSpinner v-if="isLoadingChatLogs && chatLogs && chatLogs.length < 1" />
+      <LoadingSpinner v-if="igaStore.isLoadingChatLogs && chatLogs && chatLogs.length < 1" />
       <div v-else-if="chatLogs && chatLogs.length > 0">
         <div
           v-for="log in chatLogs"
@@ -87,7 +82,7 @@ defineExpose({ setChatInput })
         </div>
       </div>
       <div v-else class="text-center text-neutral-500">
-        Start a conversation with the Interview Guide Assistant!
+        {{ $t('iga.chat.start-conversation') }}
       </div>
     </div>
 
@@ -102,9 +97,9 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+          :disabled="isIgaLoading.value"
         >
-          Message
+          {{ $t('iga.chat.message-button') }}
         </button>
         <button
           @click="selectedInstruction = 'refine-question'"
@@ -114,9 +109,9 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+          :disabled="isIgaLoading.value"
         >
-          Refine Question
+          {{ $t('iga.chat.refine-question-button') }}
         </button>
         <button
           @click="selectedInstruction = 'refine-context'"
@@ -126,9 +121,9 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+          :disabled="isIgaLoading.value"
         >
-          Refine Context
+          {{ $t('iga.chat.refine-context-button') }}
         </button>
       </div>
 
@@ -136,20 +131,20 @@ defineExpose({ setChatInput })
         <input
           type="text"
           v-model="chatInput"
-          :placeholder="$t('iga.chat-input-placeholder')"
+          :placeholder="$t('iga.chat.input-placeholder')"
           class="flex-1 p-3 border border-neutral-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+          :disabled="isIgaLoading.value"
         />
         <button
           type="submit"
-          :disabled="!chatInput.trim() || igaStore.isAnyActiveSessionStateLoading.value"
-          :class="{ 'cursor-progress': igaStore.isAnyActiveSessionStateLoading.value }"
+          :disabled="!chatInput.trim() || isIgaLoading.value"
+          :class="{ 'cursor-progress': isIgaLoading.value }"
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-400 cursor-pointer"
         >
-          <span v-if="igaStore.isAnyActiveSessionStateLoading.value">
+          <span v-if="isIgaLoading.value">
             <LoadingSpinner class="w-5 h-5" />
           </span>
-          <span v-else>Send</span>
+          <span v-else>{{ $t('iga.chat.send-button') }}</span>
         </button>
       </form>
     </div>
