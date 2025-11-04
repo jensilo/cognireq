@@ -35,7 +35,7 @@ export const useIgaStore = defineStore('iga', () => {
 
   const createIgaSessionMutation = useMutation({
     mutation: (payload: CreateIgaSessionPayload) => createIgaSession(payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'sessions']}).then(),
+    onSuccess: () => cache.invalidateQueries({key: ['iga', 'sessions']}),
   })
 
   const activeIgaSessionQuery = useQuery({
@@ -52,8 +52,8 @@ export const useIgaStore = defineStore('iga', () => {
       payload: UpdateIgaSessionPayload
     }) => updateIgaSession(id, payload),
     onSuccess: () => {
-      cache.invalidateQueries({key: ['iga', 'sessions']}).then()
-      cache.invalidateQueries({key: ['iga', 'session', route.params.id]}).then()
+      cache.invalidateQueries({key: ['iga', 'sessions']})
+      cache.invalidateQueries({key: ['iga', 'session', route.params.id]})
     },
   })
 
@@ -83,33 +83,41 @@ export const useIgaStore = defineStore('iga', () => {
         is_optimistic: true,
       }
 
-      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
+      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey) || []
       console.log(queryKey, oldLogs)
       const newLogs: IgaChatLog[] = [
-        ...(oldLogs || []),
+        ...(oldLogs),
         newMessage
       ]
       cache.setQueryData(queryKey, newLogs)
+      cache.cancelQueries({key: queryKey})
 
       return {newLogs, oldLogs, newMessage}
     },
-    onSuccess: (newLog, vars) => {
+    onSettled: (_data, _err, _var, {newMessage}) => {
+      if (!newMessage) {
+        return
+      }
+
+      const queryKey = ['iga', 'session', newMessage.iga_session_id, 'chat']
+      cache.invalidateQueries({key: queryKey})
+    },
+    /*onSuccess: (newLog, vars, context) => {
       const queryKey = ['iga', 'session', vars.sessionId, 'chat']
-      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
       const newLogs: IgaChatLog[] = [
-        ...(oldLogs || []),
+        ...(context.oldLogs || []),
         newLog
       ]
       cache.setQueryData(queryKey, newLogs)
 
-      return {newLogs, oldLogs, newLog}
-    }
+      return {newLogs, newLog}
+    }*/
   })
 
   const retryIgaChatMessageMutation = useMutation({
     mutation: (sessionId: string) => retryIgaChatMessage(sessionId),
     onSuccess: () => {
-      cache.invalidateQueries({key: ['iga', 'session', route.params.id]}).then()
+      cache.invalidateQueries({key: ['iga', 'session', route.params.id]})
     },
   })
 
@@ -126,7 +134,7 @@ export const useIgaStore = defineStore('iga', () => {
       sessionId: string;
       payload: CreateIgaScriptQuestionPayload
     }) => createIgaQuestion(sessionId, payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}).then(),
+    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
   })
 
   const updateIgaQuestionMutation = useMutation({
@@ -136,7 +144,7 @@ export const useIgaStore = defineStore('iga', () => {
         questionId: string;
         payload: UpdateIgaScriptQuestionPayload
       }) => updateIgaQuestion(sessionId, questionId, payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}).then(),
+    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
   })
 
   const deleteIgaQuestionMutation = useMutation({
@@ -144,7 +152,7 @@ export const useIgaStore = defineStore('iga', () => {
       sessionId: string;
       questionId: string
     }) => deleteIgaQuestion(sessionId, questionId),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}).then(),
+    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
   })
 
   return {

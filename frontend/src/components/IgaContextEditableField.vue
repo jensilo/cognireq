@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, watch, onMounted, type PropType} from 'vue'
+import {ref, watch, onMounted, type PropType, computed, watchEffect} from 'vue'
 import IHeroiconsSparkles from '~icons/heroicons/sparkles'
 
 const props = defineProps({
@@ -15,6 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['updateField'])
 
 const internalValue = ref(props.modelValue)
+const internalLoading = ref(props.loading)
 
 onMounted(() => {
   internalValue.value = props.modelValue
@@ -27,7 +28,7 @@ watch(() => props.modelValue, (newValue) => {
 })
 
 const handleBlur = () => {
-  // Emit unconditionally on blur. Parent will handle change detection.
+  // emit unconditionally on blur. Parent will handle change detection.
   emit('updateField', internalValue.value)
 }
 </script>
@@ -45,8 +46,8 @@ const handleBlur = () => {
       @blur="handleBlur"
       :placeholder="placeholder"
       :rows="rows"
-      :disabled="loading"
-      :class="{ 'cursor-progress': loading }"
+      :disabled="internalLoading"
+      :class="{ 'cursor-progress': internalLoading }"
       class="w-full p-1 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
     ></textarea>
   </div>
