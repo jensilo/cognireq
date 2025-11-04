@@ -129,7 +129,7 @@ export const useIgaStore = defineStore('iga', () => {
       sessionId: string;
       payload: CreateIgaScriptQuestionPayload
     }) => createIgaQuestion(sessionId, payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
+    onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
   const updateIgaQuestionMutation = useMutation({
@@ -139,7 +139,7 @@ export const useIgaStore = defineStore('iga', () => {
         questionId: string;
         payload: UpdateIgaScriptQuestionPayload
       }) => updateIgaQuestion(sessionId, questionId, payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
+    onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
   const deleteIgaQuestionMutation = useMutation({
@@ -147,7 +147,7 @@ export const useIgaStore = defineStore('iga', () => {
       sessionId: string;
       questionId: string
     }) => deleteIgaQuestion(sessionId, questionId),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}),
+    onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
   return {

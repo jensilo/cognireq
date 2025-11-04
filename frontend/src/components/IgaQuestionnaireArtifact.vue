@@ -4,6 +4,7 @@ import { useIgaStore } from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
 import type {
+  CreateIgaScriptQuestionPayload,
   IgaChatLogInstructionType,
   IgaScriptQuestion,
   UpdateIgaScriptQuestionPayload
@@ -14,13 +15,19 @@ const props = defineProps<{ sessionId: string; setChatInput: (text: string, inst
 const igaStore = useIgaStore()
 
 const activeSession = computed(() => igaStore.activeSession)
-const igaQuestions = computed(() => igaStore.igaQuestions)
+const igaQuestions = computed(() => {
+  if (!igaStore.igaQuestions) return []
+  return [...igaStore.igaQuestions].sort((a, b) => a.sort_order - b.sort_order)
+})
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
 const isSendingMessage = computed(() => igaStore.isSendingChatMessage || igaStore.isRetryingChatMessage)
 
 const editingQuestionId = ref<string | null>(null)
 const editedQuestionText = ref('')
 const editedNoteText = ref('')
+
+const isDeleteConfirmationModalOpen = ref(false)
+const questionToDeleteId = ref<string | null>(null)
 
 const startEditingQuestion = (question: IgaScriptQuestion) => {
   if (igaStore.isSendingChatMessage) return // prevent editing while chat is sending
@@ -43,6 +50,83 @@ const saveQuestionEdit = async (questionId: string) => {
 
 const cancelQuestionEdit = () => {
   editingQuestionId.value = null
+}
+
+const addQuestion = async () => {
+  if (!props.sessionId || igaStore.isSendingChatMessage) return
+
+  let sortOrder = 0;
+  if (igaQuestions.value.length > 0) {
+    sortOrder = igaQuestions.value[igaQuestions.value.length-1].sort_order + 1
+  }
+
+  const payload: CreateIgaScriptQuestionPayload = {
+    question_text: 'New Question (Please Edit)',
+    note_text: '',
+    sort_order: sortOrder,
+  }
+
+  await igaStore.createIgaQuestion({ sessionId: props.sessionId, payload })
+  editingQuestionId.value = null // Clear any active editing after adding a new question
+}
+
+const showDeleteConfirmation = (questionId: string) => {
+  questionToDeleteId.value = questionId
+  isDeleteConfirmationModalOpen.value = true
+}
+
+const cancelDelete = () => {
+  isDeleteConfirmationModalOpen.value = false
+  questionToDeleteId.value = null
+}
+
+const confirmDelete = async () => {
+  if (!props.sessionId || !questionToDeleteId.value) return
+  await igaStore.deleteIgaQuestion({ sessionId: props.sessionId, questionId: questionToDeleteId.value })
+  cancelDelete()
+}
+
+const moveQuestion = async (questionId: string, direction: 'up' | 'down') => {
+  if (!props.sessionId || igaStore.isAnyActiveSessionStateLoading.value) return
+
+  const questions = igaQuestions.value
+  if (!questions) return
+
+  const index = questions.findIndex(q => q.id === questionId)
+  if (index === -1) return
+
+  const targetIndex = direction === 'up' ? index - 1 : index + 1
+
+  if (targetIndex < 0 || targetIndex >= questions.length) return
+
+  const questionToMove = questions[index]
+  const targetQuestion = questions[targetIndex]
+
+  if (!questionToMove || !targetQuestion) return
+
+  // Swap sort_order values
+  const newSortOrderQuestionToMove = targetQuestion.sort_order
+  const newSortOrderTargetQuestion = questionToMove.sort_order
+
+  await igaStore.updateIgaQuestion({
+    sessionId: props.sessionId,
+    questionId: questionToMove.id,
+    payload: { sort_order: newSortOrderQuestionToMove },
+  })
+
+  await igaStore.updateIgaQuestion({
+    sessionId: props.sessionId,
+    questionId: targetQuestion.id,
+    payload: { sort_order: newSortOrderTargetQuestion },
+  })
+}
+
+const moveQuestionUp = (questionId: string) => {
+  moveQuestion(questionId, 'up')
+}
+
+const moveQuestionDown = (questionId: string) => {
+  moveQuestion(questionId, 'down')
 }
 
 const citeQuestion = (readableId: string) => {
@@ -81,11 +165,34 @@ const citeQuestion = (readableId: string) => {
       <!-- Questions/Notes List -->
       <div class="mb-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">Questions & Notes</h2>
+        <button
+          @click="addQuestion"
+          class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+        >
+          Add New Question
+        </button>
         <div v-if="igaQuestions && igaQuestions.length > 0" class="space-y-4">
           <div v-for="question in igaQuestions" :key="question.id" class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
             <div class="flex justify-between items-start mb-2">
               <h3 class="font-medium text-indigo-700">{{ question.readable_id }}</h3>
               <div class="flex space-x-2">
+                <button
+                  @click="moveQuestionUp(question.id)"
+                  v-if="question.sort_order > 0"
+                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value || editingQuestionId === question.id"
+                >
+                  Move Up
+                </button>
+                <button
+                  @click="moveQuestionDown(question.id)"
+                  v-if="question.sort_order < igaQuestions.length - 1"
+                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value || editingQuestionId === question.id"
+                >
+                  Move Down
+                </button>
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
@@ -100,6 +207,14 @@ const citeQuestion = (readableId: string) => {
                   :disabled="igaStore.isAnyActiveSessionStateLoading.value"
                 >
                   Edit
+                </button>
+                <button
+                  v-if="editingQuestionId !== question.id"
+                  @click="showDeleteConfirmation(question.id)"
+                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                >
+                  Delete
                 </button>
                 <button
                   v-else
@@ -149,6 +264,28 @@ const citeQuestion = (readableId: string) => {
     </div>
     <div v-else class="text-center text-neutral-500 p-4">
       Select or create an IGA session to view the questionnaire artifact.
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="isDeleteConfirmationModalOpen" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+      <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm mx-auto">
+        <h3 class="text-lg font-bold mb-4">Confirm Deletion</h3>
+        <p class="mb-6">Are you sure you want to delete this question? This action cannot be undone.</p>
+        <div class="flex justify-end space-x-4">
+          <button
+            @click="cancelDelete"
+            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmDelete"
+            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
