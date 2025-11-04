@@ -14,6 +14,8 @@ const route = useRoute()
 const router = useRouter()
 
 const sessionId = computed(() => route.params.id as string)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
+
 
 const chatInterfaceRef = ref<InstanceType<typeof IgaChatInterface> | null>(null)
 const showChatOnMobile = ref(false)
@@ -60,16 +62,16 @@ const refineContext = (contextType: string) => {
       </div>
 
       <div v-else-if="!igaStore.isLoadingActiveSession && igaStore.errorActiveSession" class="p-4 text-center text-red-500">
-        <p>Error loading session: {{ $t(`error.${igaStore.errorActiveSession.message}`) }}</p>
+        <p>{{ $t('iga.active-session.error-loading-session') }} {{ $t(`error.${igaStore.errorActiveSession.message}`) }}</p>
         <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
-          Go to Session List
+          {{ $t('iga.active-session.go-to-session-list') }}
         </button>
       </div>
 
       <div v-else-if="!igaStore.isLoadingActiveSession && !igaStore.activeSession" class="p-4 text-center text-red-500">
-        <p>Session not found.</p>
+        <p>{{ $t('iga.active-session.session-not-found') }}</p>
         <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
-          Go to Session List
+          {{ $t('iga.active-session.go-to-session-list') }}
         </button>
       </div>
 
@@ -81,36 +83,36 @@ const refineContext = (contextType: string) => {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
               </svg>
-              <span class="ml-1">Back</span>
+              <span class="ml-1">{{ $t('iga.active-session.back-button') }}</span>
             </button>
             <h1 class="text-xl font-bold text-neutral-800">{{ igaStore.activeSession?.project_name }}</h1>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <IgaContextEditableField
-              label="Stakeholder Summary"
+              :label="$t('iga.active-session.stakeholder-summary-label')"
               :model-value="igaStore.activeSession.context_data.stakeholder_summary"
               @updateField="updateSessionContext('stakeholder_summary', $event)"
               :on-refine="refineContext"
               context-type="stakeholder summary"
-              rows="2"
-              :loading="igaStore.isAnyActiveSessionStateLoading.value"
+              :rows="2"
+              :loading="isIgaLoading.value"
             />
             <IgaContextEditableField
-              label="Project Summary"
+              :label="$t('iga.active-session.project-summary-label')"
               :model-value="igaStore.activeSession.context_data.project_summary"
               @updateField="updateSessionContext('project_summary', $event)"
               :on-refine="refineContext"
               context-type="project summary"
-              rows="2"
-              :loading="igaStore.isAnyActiveSessionStateLoading.value"
+              :rows="2"
+              :loading="isIgaLoading.value"
             />
           </div>
 
           <div class="text-xs text-neutral-400">
-            <span>Created: {{ igaStore.activeSession?.created_at ? new Date(igaStore.activeSession.created_at).toLocaleString('de-DE') : '' }}</span>
+            <span>{{ $t('iga.active-session.created-label') }} {{ igaStore.activeSession?.created_at ? new Date(igaStore.activeSession.created_at).toLocaleString('de-DE') : '' }}</span>
             &emsp;
-            <span v-if="igaStore.activeSession?.updated_at">Updated: {{ igaStore.activeSession?.updated_at ? new Date(igaStore.activeSession.updated_at).toLocaleString('de-DE') : '' }}</span>
+            <span v-if="igaStore.activeSession?.updated_at">{{ $t('iga.active-session.updated-label') }} {{ igaStore.activeSession?.updated_at ? new Date(igaStore.activeSession.updated_at).toLocaleString('de-DE') : '' }}</span>
           </div>
         </div>
 
@@ -120,13 +122,13 @@ const refineContext = (contextType: string) => {
             @click="showChatOnMobile = true"
             :class="['px-4 py-2 rounded-lg text-sm font-medium', showChatOnMobile ? 'bg-indigo-600 text-white' : 'text-indigo-600']"
           >
-            Chat
+            {{ $t('iga.active-session.chat-button') }}
           </button>
           <button
             @click="showChatOnMobile = false"
             :class="['px-4 py-2 rounded-lg text-sm font-medium', !showChatOnMobile ? 'bg-indigo-600 text-white' : 'text-indigo-600']"
           >
-            Questionnaire
+            {{ $t('iga.active-session.questionnaire-button') }}
           </button>
         </div>
 

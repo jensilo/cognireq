@@ -9,10 +9,12 @@ import type {
   IgaScriptQuestion,
   UpdateIgaScriptQuestionPayload
 } from '@/api/igaService.ts'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: IgaChatLogInstructionType) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
 
 const igaStore = useIgaStore()
+const { t } = useI18n()
 
 const activeSession = computed(() => igaStore.activeSession)
 const igaQuestions = computed(() => {
@@ -20,7 +22,7 @@ const igaQuestions = computed(() => {
   return [...igaStore.igaQuestions].sort((a, b) => a.sort_order - b.sort_order)
 })
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
-const isSendingMessage = computed(() => igaStore.isSendingChatMessage || igaStore.isRetryingChatMessage)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
 
 const editingQuestionId = ref<string | null>(null)
 const editedQuestionText = ref('')
@@ -30,14 +32,14 @@ const isDeleteConfirmationModalOpen = ref(false)
 const questionToDeleteId = ref<string | null>(null)
 
 const startEditingQuestion = (question: IgaScriptQuestion) => {
-  if (igaStore.isSendingChatMessage) return // prevent editing while chat is sending
+  if (isIgaLoading.value) return // prevent editing while chat is sending
   editingQuestionId.value = question.id
   editedQuestionText.value = question.question_text
   editedNoteText.value = question.note_text
 }
 
 const saveQuestionEdit = async (questionId: string) => {
-  if (!props.sessionId || !questionId || igaStore.isSendingChatMessage) return
+  if (!props.sessionId || !questionId || isIgaLoading.value) return
 
   const payload: UpdateIgaScriptQuestionPayload = {
     question_text: editedQuestionText.value,
@@ -53,15 +55,12 @@ const cancelQuestionEdit = () => {
 }
 
 const addQuestion = async () => {
-  if (!props.sessionId || igaStore.isSendingChatMessage) return
+  if (!props.sessionId || isIgaLoading.value) return
 
-  let sortOrder = 0;
-  if (igaQuestions.value.length > 0) {
-    sortOrder = igaQuestions.value[igaQuestions.value.length-1].sort_order + 1
-  }
+  const sortOrder = igaQuestions.value.length > 0 ? igaQuestions.value[igaQuestions.value.length - 1].sort_order + 1 : 0;
 
   const payload: CreateIgaScriptQuestionPayload = {
-    question_text: 'New Question (Please Edit)',
+    question_text: t('iga.questionnaire.new-question-placeholder'),
     note_text: '',
     sort_order: sortOrder,
   }
@@ -87,7 +86,7 @@ const confirmDelete = async () => {
 }
 
 const moveQuestion = async (questionId: string, direction: 'up' | 'down') => {
-  if (!props.sessionId || igaStore.isAnyActiveSessionStateLoading.value) return
+  if (!props.sessionId || isIgaLoading.value) return
 
   const questions = igaQuestions.value
   if (!questions) return
@@ -130,7 +129,7 @@ const moveQuestionDown = (questionId: string) => {
 }
 
 const citeQuestion = (readableId: string) => {
-  if (igaStore.isAnyActiveSessionStateLoading.value) return // prevent citing while chat is sending
+  if (isIgaLoading.value) return // prevent citing while chat is sending
   props.setChatInput(`Concerning question ${readableId}: `, 'refine-question')
 }
 </script>
@@ -141,16 +140,15 @@ const citeQuestion = (readableId: string) => {
 
     <div v-else-if="activeSession">
       <!-- Interview Goal -->
-      <IgaContextEditableField
-        label="Interview Goal"
-        :model-value="activeSession.context_data.interview_goal"
-        @updateField="props.updateSessionContext('interview_goal', $event)"
-        :on-refine="props.refineContext"
-        context-type="interview goal"
-        class="mb-6"
-        :loading="igaStore.isAnyActiveSessionStateLoading.value"
-      />
-
+              <IgaContextEditableField
+                label="Interview Goal"
+                :model-value="activeSession.context_data.interview_goal"
+                @updateField="props.updateSessionContext('interview_goal', $event)"
+                :on-refine="props.refineContext"
+                context-type="interview goal"
+                class="mb-6"
+                :loading="isIgaLoading.value"
+              />
       <!-- General Interview Advice -->
       <IgaContextEditableField
         label="General Interview Advice"
@@ -159,18 +157,18 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
-        :loading="igaStore.isAnyActiveSessionStateLoading.value"
+        :loading="isIgaLoading.value"
       />
 
       <!-- Questions/Notes List -->
       <div class="mb-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">Questions & Notes</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">{{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
         <button
           @click="addQuestion"
           class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+          :disabled="isIgaLoading.value"
         >
-          Add New Question
+          {{ $t('iga.questionnaire.add-new-question-button') }}
         </button>
         <div v-if="igaQuestions && igaQuestions.length > 0" class="space-y-4">
           <div v-for="question in igaQuestions" :key="question.id" class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
@@ -181,74 +179,71 @@ const citeQuestion = (readableId: string) => {
                   @click="moveQuestionUp(question.id)"
                   v-if="question.sort_order > 0"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value || editingQuestionId === question.id"
+                  :disabled="isIgaLoading.value || editingQuestionId === question.id"
                 >
-                  Move Up
+                  {{ $t('iga.questionnaire.move-up-button') }}
                 </button>
                 <button
                   @click="moveQuestionDown(question.id)"
                   v-if="question.sort_order < igaQuestions.length - 1"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value || editingQuestionId === question.id"
+                  :disabled="isIgaLoading.value || editingQuestionId === question.id"
                 >
-                  Move Down
+                  {{ $t('iga.questionnaire.move-down-button') }}
                 </button>
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                  :disabled="isIgaLoading.value"
                 >
-                  Cite
+                  {{ $t('iga.questionnaire.cite-button') }}
                 </button>
                 <button
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                  :disabled="isIgaLoading.value"
                 >
-                  Edit
+                  {{ $t('iga.questionnaire.edit-button') }}
                 </button>
                 <button
                   v-if="editingQuestionId !== question.id"
                   @click="showDeleteConfirmation(question.id)"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                  :disabled="isIgaLoading.value"
                 >
-                  Delete
+                  {{ $t('iga.questionnaire.delete-button') }}
                 </button>
                 <button
                   v-else
                   @click="saveQuestionEdit(question.id)"
                   class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                  :disabled="isIgaLoading.value"
                 >
-                  Save
+                  {{ $t('iga.questionnaire.save-button') }}
                 </button>
                 <button
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                  :disabled="isIgaLoading.value"
                 >
-                  Cancel
+                  {{ $t('iga.questionnaire.cancel-button') }}
                 </button>
               </div>
             </div>
 
             <div v-if="editingQuestionId === question.id">
-              <label class="block text-sm font-medium text-neutral-700">Question Text</label>
+              <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.question-text-label') }}</label>
               <textarea
-                v-model="editedQuestionText"
-                class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
-                rows="2"
-                :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                :disabled="isIgaLoading.value"
               ></textarea>
-              <label class="block text-sm font-medium text-neutral-700">Note Text</label>
+              <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.note-text-label') }}</label>
               <textarea
                 v-model="editedNoteText"
                 class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="igaStore.isAnyActiveSessionStateLoading.value"
+                :disabled="isIgaLoading.value"
               ></textarea>
             </div>
             <div v-else>
@@ -258,31 +253,31 @@ const citeQuestion = (readableId: string) => {
           </div>
         </div>
         <div v-else class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-          No questions generated yet. Start a conversation in the chat to generate some!
+          {{ $t('iga.questionnaire.no-questions-message') }}
         </div>
       </div>
     </div>
     <div v-else class="text-center text-neutral-500 p-4">
-      Select or create an IGA session to view the questionnaire artifact.
+      {{ $t('iga.questionnaire.select-session-message') }}
     </div>
 
     <!-- Delete Confirmation Modal -->
     <div v-if="isDeleteConfirmationModalOpen" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm mx-auto">
-        <h3 class="text-lg font-bold mb-4">Confirm Deletion</h3>
-        <p class="mb-6">Are you sure you want to delete this question? This action cannot be undone.</p>
+        <h3 class="text-lg font-bold mb-4">{{ $t('iga.questionnaire.confirm-deletion-title') }}</h3>
+        <p class="mb-6">{{ $t('iga.questionnaire.confirm-deletion-message') }}</p>
         <div class="flex justify-end space-x-4">
           <button
             @click="cancelDelete"
             class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
-            Cancel
+            {{ $t('iga.questionnaire.modal-cancel-button') }}
           </button>
           <button
             @click="confirmDelete"
             class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
           >
-            Delete
+            {{ $t('iga.questionnaire.modal-delete-button') }}
           </button>
         </div>
       </div>

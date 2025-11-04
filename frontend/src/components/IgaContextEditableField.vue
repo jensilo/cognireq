@@ -37,7 +37,7 @@ const handleBlur = () => {
     <h2 class="text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
       {{ label }}
       <button @click="onRefine(contextType)" class="text-indigo-600 hover:text-indigo-800 text-xs flex items-center cursor-pointer">
-        <IHeroiconsSparkles class="w-4 h-4 mr-1"></IHeroiconsSparkles> AI Enhance
+        <IHeroiconsSparkles class="w-4 h-4 mr-1"></IHeroiconsSparkles> {{ $t('iga.context-editable-field-ai-enhance') }}
       </button>
     </h2>
     <textarea
