@@ -60,7 +60,7 @@ const refineContext = (contextType: string) => {
       </div>
 
       <div v-else-if="!igaStore.isLoadingActiveSession && igaStore.errorActiveSession" class="p-4 text-center text-red-500">
-        <p>Error loading session: {{ $t(igaStore.errorActiveSession.message) }}</p>
+        <p>Error loading session: {{ $t('error.' + igaStore.errorActiveSession.message) }}</p>
         <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
           Go to Session List
         </button>
