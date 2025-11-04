@@ -59,7 +59,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="interview goal"
         class="mb-6"
-        :disabled="igaStore.isSendingChatMessage"
+        :loading="igaStore.isSendingChatMessage"
       />
 
       <!-- General Interview Advice -->
@@ -70,7 +70,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
-        :disabled="igaStore.isSendingChatMessage"
+        :loading="igaStore.isSendingChatMessage"
       />
 
       <!-- Questions/Notes List -->

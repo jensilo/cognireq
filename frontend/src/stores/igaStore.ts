@@ -84,18 +84,26 @@ export const useIgaStore = defineStore('iga', () => {
       }
 
       const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
+      console.log(queryKey, oldLogs)
       const newLogs: IgaChatLog[] = [
         ...(oldLogs || []),
         newMessage
       ]
       cache.setQueryData(queryKey, newLogs)
-      cache.cancelQueries({key: queryKey})
 
       return {newLogs, oldLogs, newMessage}
     },
-    onSettled: (_data, _err, vars) => {
-      cache.invalidateQueries({key: ['iga', 'session', vars.sessionId, 'chat']}).then()
-    },
+    onSuccess: (newLog, vars) => {
+      const queryKey = ['iga', 'session', vars.sessionId, 'chat']
+      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
+      const newLogs: IgaChatLog[] = [
+        ...(oldLogs || []),
+        newLog
+      ]
+      cache.setQueryData(queryKey, newLogs)
+
+      return {newLogs, oldLogs, newLog}
+    }
   })
 
   const retryIgaChatMessageMutation = useMutation({

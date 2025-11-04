@@ -85,16 +85,6 @@ defineExpose({ setChatInput })
             ]"
           >
             <p class="text-sm">{{ log.message_text }}</p>
-            <p class="text-xs mt-1 opacity-75">{{ formatTimestamp(log.created_at) }}</p>
-            <LoadingSpinner v-if="(log as IgaChatLog).is_optimistic" class="mt-2 w-4 h-4" />
-            <button
-              v-else-if="log.role === 'assistant' && log.metadata.type === 'message' && !isRetryingChatMessage"
-              @click="retryMessage"
-              class="mt-2 text-xs text-white/80 hover:text-white underline cursor-pointer"
-            >
-              Retry
-            </button>
-            <LoadingSpinner v-if="isRetryingChatMessage" class="mt-2" />
           </div>
         </div>
       </div>
@@ -155,6 +145,7 @@ defineExpose({ setChatInput })
         <button
           type="submit"
           :disabled="!chatInput.trim() || isSendingChatMessage || isRetryingChatMessage"
+          :class="{ 'cursor-progress': (isSendingChatMessage || isRetryingChatMessage) }"
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-400 cursor-pointer"
         >
           <span v-if="isSendingChatMessage || isRetryingChatMessage">

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import BaseLayout from '@/components/Base/BaseLayout.vue'
-import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaChatInterface from '@/components/IgaChatInterface.vue'
 import IgaQuestionnaireArtifact from '@/components/IgaQuestionnaireArtifact.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
@@ -23,10 +22,6 @@ const setChatInput = (text: string, instruction: IgaChatLogInstructionType) => {
     chatInterfaceRef.value.setChatInput(text, instruction)
   }
   showChatOnMobile.value = true // show chat when citing/refining
-}
-
-const handleClearActiveSession = () => {
-  router.push('/iga')
 }
 
 const goBack = () => {
@@ -59,23 +54,21 @@ const refineContext = (contextType: string) => {
 <template>
   <BaseLayout>
     <div class="flex flex-col h-full">
-      <LoadingSpinner v-if="igaStore.isLoadingActiveSession" />
-
-      <div v-else-if="igaStore.errorActiveSession" class="p-4 text-center text-red-500">
-        <p>Error loading session: {{ igaStore.errorActiveSession.message }}</p>
-        <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
+      <div v-if="!igaStore.isLoadingActiveSession && igaStore.errorActiveSession" class="p-4 text-center text-red-500">
+        <p>Error loading session: {{ $t(igaStore.errorActiveSession.message) }}</p>
+        <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
           Go to Session List
         </button>
       </div>
 
-      <div v-else-if="!igaStore.activeSession" class="p-4 text-center text-red-500">
+      <div v-else-if="!igaStore.isLoadingActiveSession && !igaStore.activeSession" class="p-4 text-center text-red-500">
         <p>Session not found.</p>
-        <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
+        <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
           Go to Session List
         </button>
       </div>
 
-      <div v-else class="flex flex-col h-full">
+      <div v-if="igaStore.activeSession" class="flex flex-col h-full">
         <!-- Header for IGA Session Context -->
         <div class="bg-white shadow-sm p-4 border-b border-neutral-200">
           <div class="flex items-center mb-2">
@@ -96,7 +89,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="stakeholder summary"
               rows="2"
-              :disabled="igaStore.isSendingChatMessage"
+              :loading="igaStore.isSendingChatMessage"
             />
             <IgaContextEditableField
               label="Project Summary"
@@ -105,7 +98,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="project summary"
               rows="2"
-              :disabled="igaStore.isSendingChatMessage"
+              :loading="igaStore.isSendingChatMessage"
             />
           </div>
 
