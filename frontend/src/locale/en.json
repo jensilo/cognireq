@@ -36,6 +36,8 @@
     "EMAIL_EXISTS": "An account with this email already exists. Please login.",
     "INVALID_CREDENTIALS": "The email and password combination is incorrect.",
 
+    "AUTHORIZATION_ERROR": "Login expired, please log in again.",
+
     "CLIENT_NETWORK_CONNECTION_ERROR": "Could not connect to the server. Check your network.",
     "CLIENT_UNKNOWN_ERROR": "An unknown error occurred. Please try again."
   },
