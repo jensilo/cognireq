@@ -95,7 +95,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="stakeholder summary"
               :rows="2"
-              :loading="isIgaLoading.value"
+              :loading="isIgaLoading"
             />
             <IgaContextEditableField
               :label="$t('iga.active-session.project-summary-label')"
@@ -104,7 +104,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="project summary"
               :rows="2"
-              :loading="isIgaLoading.value"
+              :loading="isIgaLoading"
             />
           </div>
 
