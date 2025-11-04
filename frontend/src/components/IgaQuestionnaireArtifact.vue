@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useIgaStore } from '@/stores/igaStore.ts'
+import {computed, ref} from 'vue'
+import {useIgaStore} from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
 import type {
@@ -9,12 +9,17 @@ import type {
   IgaScriptQuestion,
   UpdateIgaScriptQuestionPayload
 } from '@/api/igaService.ts'
-import { useI18n } from 'vue-i18n'
+import {useI18n} from 'vue-i18n'
 
-const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: IgaChatLogInstructionType) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
+const props = defineProps<{
+  sessionId: string;
+  setChatInput: (text: string, instruction: IgaChatLogInstructionType) => void;
+  refineContext: (contextType: string) => void;
+  updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void
+}>()
 
 const igaStore = useIgaStore()
-const { t } = useI18n()
+const {t} = useI18n()
 
 const activeSession = computed(() => igaStore.activeSession)
 const igaQuestions = computed(() => {
@@ -46,7 +51,7 @@ const saveQuestionEdit = async (questionId: string) => {
     note_text: editedNoteText.value,
   }
 
-  await igaStore.updateIgaQuestion({ sessionId: props.sessionId, questionId, payload })
+  await igaStore.updateIgaQuestion({sessionId: props.sessionId, questionId, payload})
   editingQuestionId.value = null
 }
 
@@ -55,7 +60,6 @@ const cancelQuestionEdit = () => {
 }
 
 const addQuestion = async () => {
-  console.log(props.sessionId, !!isIgaLoading.value)
   if (!props.sessionId || isIgaLoading.value) return
 
   const sortOrder = igaQuestions.value.length > 0 ? igaQuestions.value[igaQuestions.value.length - 1].sort_order + 1 : 0;
@@ -66,8 +70,8 @@ const addQuestion = async () => {
     sort_order: sortOrder,
   }
 
-  await igaStore.createIgaQuestion({ sessionId: props.sessionId, payload })
-  editingQuestionId.value = null // Clear any active editing after adding a new question
+  await igaStore.createIgaQuestion({sessionId: props.sessionId, payload})
+  editingQuestionId.value = null // clear any active editing after adding a new question
 }
 
 const showDeleteConfirmation = (questionId: string) => {
@@ -82,7 +86,10 @@ const cancelDelete = () => {
 
 const confirmDelete = async () => {
   if (!props.sessionId || !questionToDeleteId.value) return
-  await igaStore.deleteIgaQuestion({ sessionId: props.sessionId, questionId: questionToDeleteId.value })
+  await igaStore.deleteIgaQuestion({
+    sessionId: props.sessionId,
+    questionId: questionToDeleteId.value
+  })
   cancelDelete()
 }
 
@@ -111,13 +118,13 @@ const moveQuestion = async (questionId: string, direction: 'up' | 'down') => {
   await igaStore.updateIgaQuestion({
     sessionId: props.sessionId,
     questionId: questionToMove.id,
-    payload: { sort_order: newSortOrderQuestionToMove },
+    payload: {sort_order: newSortOrderQuestionToMove},
   })
 
   await igaStore.updateIgaQuestion({
     sessionId: props.sessionId,
     questionId: targetQuestion.id,
-    payload: { sort_order: newSortOrderTargetQuestion },
+    payload: {sort_order: newSortOrderTargetQuestion},
   })
 }
 
@@ -137,19 +144,19 @@ const citeQuestion = (readableId: string) => {
 
 <template>
   <div class="flex flex-col h-full bg-white p-4 overflow-y-auto">
-    <LoadingSpinner v-if="isLoadingQuestions && !activeSession" />
+    <LoadingSpinner v-if="isLoadingQuestions && !activeSession"/>
 
     <div v-else-if="activeSession">
       <!-- Interview Goal -->
-              <IgaContextEditableField
-                label="Interview Goal"
-                :model-value="activeSession.context_data.interview_goal"
-                @updateField="props.updateSessionContext('interview_goal', $event)"
-                :on-refine="props.refineContext"
-                context-type="interview goal"
-                class="mb-6"
-                :loading="isIgaLoading.value"
-              />
+      <IgaContextEditableField
+        label="Interview Goal"
+        :model-value="activeSession.context_data.interview_goal"
+        @updateField="props.updateSessionContext('interview_goal', $event)"
+        :on-refine="props.refineContext"
+        context-type="interview goal"
+        class="mb-6"
+        :loading="isIgaLoading"
+      />
       <!-- General Interview Advice -->
       <IgaContextEditableField
         label="General Interview Advice"
@@ -158,21 +165,23 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
-        :loading="isIgaLoading.value"
+        :loading="isIgaLoading"
       />
 
       <!-- Questions/Notes List -->
       <div class="mb-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">{{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+          {{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
         <button
           @click="addQuestion"
           class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          :disabled="isIgaLoading.value"
+          :disabled="isIgaLoading"
         >
           {{ $t('iga.questionnaire.add-new-question-button') }}
         </button>
         <div v-if="igaQuestions && igaQuestions.length > 0" class="space-y-4">
-          <div v-for="question in igaQuestions" :key="question.id" class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+          <div v-for="question in igaQuestions" :key="question.id"
+               class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
             <div class="flex justify-between items-start mb-2">
               <h3 class="font-medium text-indigo-700">{{ question.readable_id }}</h3>
               <div class="flex space-x-2">
@@ -180,7 +189,7 @@ const citeQuestion = (readableId: string) => {
                   @click="moveQuestionUp(question.id)"
                   v-if="question.sort_order > 0"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="isIgaLoading.value || editingQuestionId === question.id"
+                  :disabled="isIgaLoading || editingQuestionId === question.id"
                 >
                   {{ $t('iga.questionnaire.move-up-button') }}
                 </button>
@@ -188,14 +197,14 @@ const citeQuestion = (readableId: string) => {
                   @click="moveQuestionDown(question.id)"
                   v-if="question.sort_order < igaQuestions.length - 1"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="isIgaLoading.value || editingQuestionId === question.id"
+                  :disabled="isIgaLoading || editingQuestionId === question.id"
                 >
                   {{ $t('iga.questionnaire.move-down-button') }}
                 </button>
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                  :disabled="isIgaLoading.value"
+                  :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.cite-button') }}
                 </button>
@@ -203,7 +212,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="isIgaLoading.value"
+                  :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.edit-button') }}
                 </button>
@@ -211,7 +220,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId !== question.id"
                   @click="showDeleteConfirmation(question.id)"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="isIgaLoading.value"
+                  :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.delete-button') }}
                 </button>
@@ -219,7 +228,7 @@ const citeQuestion = (readableId: string) => {
                   v-else
                   @click="saveQuestionEdit(question.id)"
                   class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
-                  :disabled="isIgaLoading.value"
+                  :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.save-button') }}
                 </button>
@@ -227,7 +236,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="isIgaLoading.value"
+                  :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.cancel-button') }}
                 </button>
@@ -235,19 +244,23 @@ const citeQuestion = (readableId: string) => {
             </div>
 
             <div v-if="editingQuestionId === question.id">
-              <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.question-text-label') }}</label>
+              <label class="block text-sm font-medium text-neutral-700">{{
+                  $t('iga.questionnaire.question-text-label')
+                }}</label>
               <textarea
                 v-model="editedQuestionText"
                 class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="isIgaLoading.value"
+                :disabled="isIgaLoading"
               ></textarea>
-              <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.note-text-label') }}</label>
+              <label class="block text-sm font-medium text-neutral-700">{{
+                  $t('iga.questionnaire.note-text-label')
+                }}</label>
               <textarea
                 v-model="editedNoteText"
                 class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="isIgaLoading.value"
+                :disabled="isIgaLoading"
               ></textarea>
             </div>
             <div v-else>
@@ -256,7 +269,8 @@ const citeQuestion = (readableId: string) => {
             </div>
           </div>
         </div>
-        <div v-else class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+        <div v-else
+             class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           {{ $t('iga.questionnaire.no-questions-message') }}
         </div>
       </div>
@@ -266,7 +280,8 @@ const citeQuestion = (readableId: string) => {
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="isDeleteConfirmationModalOpen" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+    <div v-if="isDeleteConfirmationModalOpen"
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm mx-auto">
         <h3 class="text-lg font-bold mb-4">{{ $t('iga.questionnaire.confirm-deletion-title') }}</h3>
         <p class="mb-6">{{ $t('iga.questionnaire.confirm-deletion-message') }}</p>

@@ -14,7 +14,6 @@ const chatContainer = ref<HTMLElement | null>(null)
 const chatLogs = computed(() => igaStore.igaChatLogs)
 const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading.value)
 
-
 watch(chatLogs, () => {
   nextTick(() => {
     if (chatContainer.value) {
@@ -35,9 +34,6 @@ const sendMessage = async () => {
   chatInput.value = ''
   selectedInstruction.value = null
 }
-
-
-
 
 const setChatInput = (text: string, instruction: IgaChatLogInstructionType = 'message') => {
   chatInput.value = text
@@ -97,7 +93,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isIgaLoading.value"
+          :disabled="isIgaLoading"
         >
           {{ $t('iga.chat.message-button') }}
         </button>
@@ -109,7 +105,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isIgaLoading.value"
+          :disabled="isIgaLoading"
         >
           {{ $t('iga.chat.refine-question-button') }}
         </button>
@@ -121,7 +117,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isIgaLoading.value"
+          :disabled="isIgaLoading"
         >
           {{ $t('iga.chat.refine-context-button') }}
         </button>
@@ -133,15 +129,15 @@ defineExpose({ setChatInput })
           v-model="chatInput"
           :placeholder="$t('iga.chat.input-placeholder')"
           class="flex-1 p-3 border border-neutral-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          :disabled="isIgaLoading.value"
+          :disabled="isIgaLoading"
         />
         <button
           type="submit"
-          :disabled="!chatInput.trim() || isIgaLoading.value"
-          :class="{ 'cursor-progress': isIgaLoading.value }"
+          :disabled="!chatInput.trim() || isIgaLoading"
+          :class="{ 'cursor-progress': isIgaLoading }"
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-400 cursor-pointer"
         >
-          <span v-if="isIgaLoading.value">
+          <span v-if="isIgaLoading">
             <LoadingSpinner class="w-5 h-5" />
           </span>
           <span v-else>{{ $t('iga.chat.send-button') }}</span>
