@@ -94,7 +94,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="stakeholder summary"
               rows="2"
-              :loading="igaStore.isSendingChatMessage"
+              :loading="igaStore.isAnyActiveSessionStateLoading.value"
             />
             <IgaContextEditableField
               label="Project Summary"
@@ -103,7 +103,7 @@ const refineContext = (contextType: string) => {
               :on-refine="refineContext"
               context-type="project summary"
               rows="2"
-              :loading="igaStore.isSendingChatMessage"
+              :loading="igaStore.isAnyActiveSessionStateLoading.value"
             />
           </div>
 

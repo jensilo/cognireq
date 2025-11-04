@@ -13,8 +13,6 @@ const chatContainer = ref<HTMLElement | null>(null)
 
 const chatLogs = computed(() => igaStore.igaChatLogs)
 const isLoadingChatLogs = computed(() => igaStore.isLoadingChatLogs)
-const isSendingChatMessage = computed(() => igaStore.isSendingChatMessage)
-const isRetryingChatMessage = computed(() => igaStore.isRetryingChatMessage)
 
 watch(chatLogs, () => {
   nextTick(() => {
@@ -104,7 +102,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isSendingChatMessage || isRetryingChatMessage"
+          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
         >
           Message
         </button>
@@ -116,7 +114,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isSendingChatMessage || isRetryingChatMessage"
+          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
         >
           Refine Question
         </button>
@@ -128,7 +126,7 @@ defineExpose({ setChatInput })
               ? 'bg-indigo-600 text-white'
               : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300',
           ]"
-          :disabled="isSendingChatMessage || isRetryingChatMessage"
+          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
         >
           Refine Context
         </button>
@@ -140,15 +138,15 @@ defineExpose({ setChatInput })
           v-model="chatInput"
           :placeholder="$t('iga.chat-input-placeholder')"
           class="flex-1 p-3 border border-neutral-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-          :disabled="isSendingChatMessage || isRetryingChatMessage"
+          :disabled="igaStore.isAnyActiveSessionStateLoading.value"
         />
         <button
           type="submit"
-          :disabled="!chatInput.trim() || isSendingChatMessage || isRetryingChatMessage"
-          :class="{ 'cursor-progress': (isSendingChatMessage || isRetryingChatMessage) }"
+          :disabled="!chatInput.trim() || igaStore.isAnyActiveSessionStateLoading.value"
+          :class="{ 'cursor-progress': igaStore.isAnyActiveSessionStateLoading.value }"
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-400 cursor-pointer"
         >
-          <span v-if="isSendingChatMessage || isRetryingChatMessage">
+          <span v-if="igaStore.isAnyActiveSessionStateLoading.value">
             <LoadingSpinner class="w-5 h-5" />
           </span>
           <span v-else>Send</span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, watch, onMounted, type PropType, computed, watchEffect} from 'vue'
+import {ref, watch, onMounted, type PropType} from 'vue'
 import IHeroiconsSparkles from '~icons/heroicons/sparkles'
 
 const props = defineProps({
@@ -47,7 +47,7 @@ const handleBlur = () => {
       :rows="rows"
       :disabled="loading"
       :class="{ 'cursor-progress': loading }"
-      class="w-full p-1 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
+      class="w-full p-1 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:bg-gray-100"
     ></textarea>
   </div>
 </template>

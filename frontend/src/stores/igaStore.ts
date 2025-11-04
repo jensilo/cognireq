@@ -71,8 +71,13 @@ export const useIgaStore = defineStore('iga', () => {
       payload: SendChatPayload
     }) => sendIgaChatMessage(sessionId, payload),
     onMutate: async ({sessionId, payload}) => {
-      // optimistically update the chat logs
       const queryKey = ['iga', 'session', sessionId, 'chat']
+      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
+      if (oldLogs === undefined) {
+        return
+      }
+
+      // optimistically update the chat logs
       const newMessage: IgaChatLog = {
         id: crypto.randomUUID(),
         iga_session_id: sessionId,
@@ -83,10 +88,8 @@ export const useIgaStore = defineStore('iga', () => {
         is_optimistic: true,
       }
 
-      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey) || []
-      console.log(queryKey, oldLogs)
       const newLogs: IgaChatLog[] = [
-        ...(oldLogs),
+        ...(oldLogs || []),
         newMessage
       ]
       cache.setQueryData(queryKey, newLogs)
@@ -94,24 +97,16 @@ export const useIgaStore = defineStore('iga', () => {
 
       return {newLogs, oldLogs, newMessage}
     },
-    onSettled: (_data, _err, _var, {newMessage}) => {
-      if (!newMessage) {
-        return
+    onSettled: (_data, _err, _var, {oldLogs, newMessage}) => {
+      if (newMessage) {
+        const queryKey = ['iga', 'session', newMessage.iga_session_id, 'chat']
+        cache.invalidateQueries({key: queryKey})
       }
 
-      const queryKey = ['iga', 'session', newMessage.iga_session_id, 'chat']
-      cache.invalidateQueries({key: queryKey})
+      if (oldLogs === undefined) {
+        igaChatLogsQuery.refetch()
+      }
     },
-    /*onSuccess: (newLog, vars, context) => {
-      const queryKey = ['iga', 'session', vars.sessionId, 'chat']
-      const newLogs: IgaChatLog[] = [
-        ...(context.oldLogs || []),
-        newLog
-      ]
-      cache.setQueryData(queryKey, newLogs)
-
-      return {newLogs, newLog}
-    }*/
   })
 
   const retryIgaChatMessageMutation = useMutation({
@@ -183,6 +178,18 @@ export const useIgaStore = defineStore('iga', () => {
     isUpdatingQuestion: updateIgaQuestionMutation.isLoading,
     isCreatingQuestion: createIgaQuestionMutation.isLoading,
     isDeletingQuestion: deleteIgaQuestionMutation.isLoading,
+    isAnyActiveSessionStateLoading: computed(() => {
+      return activeIgaSessionQuery.isLoading ||
+        igaChatLogsQuery.isLoading ||
+        igaQuestionsQuery.isLoading ||
+        createIgaSessionMutation.isLoading ||
+        sendIgaChatMessageMutation.isLoading ||
+        retryIgaChatMessageMutation.isLoading ||
+        updateIgaSessionMutation.isLoading ||
+        updateIgaQuestionMutation.isLoading ||
+        createIgaQuestionMutation.isLoading ||
+        deleteIgaQuestionMutation.isLoading
+    }),
 
     // Errors
     errorSessions: igaSessionsQuery.error,
