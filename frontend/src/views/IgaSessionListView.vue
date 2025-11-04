@@ -11,7 +11,6 @@ const router = useRouter()
 const hasSessions = computed(() => igaStore.igaSessions && igaStore.igaSessions.length > 0)
 
 const selectExistingSession = (sessionId: string) => {
-  igaStore.invalidateSessionQueries()
   router.push({ name: 'iga-active', params: { id: sessionId } })
 }
 

@@ -29,14 +29,18 @@ const handleClearActiveSession = () => {
   router.push('/iga')
 }
 
+const goBack = () => {
+  router.push({ name: 'iga-list' })
+}
+
 const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', newValue: string) => {
   if (!sessionId.value || !igaStore.activeSession) return
 
   const currentValue = igaStore.activeSession.context_data[field]
 
-  // Only update if the value has actually changed (ignoring leading/trailing whitespace)
+  // only update if the value has actually changed (ignoring leading/trailing whitespace)
   if (newValue.trim() === currentValue.trim()) {
-    return // No change, do nothing
+    return // no change, do nothing
   }
 
   const currentContext = igaStore.activeSession.context_data
@@ -74,11 +78,14 @@ const refineContext = (contextType: string) => {
       <div v-else class="flex flex-col h-full">
         <!-- Header for IGA Session Context -->
         <div class="bg-white shadow-sm p-4 border-b border-neutral-200">
-          <div class="flex justify-between items-center mb-2">
-            <h1 class="text-xl font-bold text-neutral-800">{{ igaStore.activeSession?.project_name }}</h1>
-            <button @click="handleClearActiveSession" class="text-md cursor-pointer text-indigo-600 hover:underline">
-              Change Session
+          <div class="flex items-center mb-2">
+            <button @click="goBack" class="text-indigo-600 hover:text-indigo-800 flex items-center mr-4 cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              <span class="ml-1">Back</span>
             </button>
+            <h1 class="text-xl font-bold text-neutral-800">{{ igaStore.activeSession?.project_name }}</h1>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

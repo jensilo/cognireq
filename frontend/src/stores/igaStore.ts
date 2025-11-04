@@ -30,6 +30,7 @@ export const useIgaStore = defineStore('iga', () => {
   const igaSessionsQuery = useQuery({
     key: ['iga', 'sessions'],
     query: fetchIgaSessions,
+    refetchOnMount: true,
   })
 
   const createIgaSessionMutation = useMutation({
@@ -41,6 +42,8 @@ export const useIgaStore = defineStore('iga', () => {
     key: () => ['iga', 'session', route.params.id],
     query: () => fetchIgaSession(route.params.id as string),
     enabled: computed(() => !!route.params.id),
+    refetchOnMount: true,
+    staleTime: 0,
   })
 
   const updateIgaSessionMutation = useMutation({
@@ -59,6 +62,7 @@ export const useIgaStore = defineStore('iga', () => {
     key: ['iga', 'session', route.params.id, 'chat'],
     query: () => fetchIgaChatLog(route.params.id as string),
     enabled: computed(() => !!route.params.id),
+    staleTime: 0,
   })
 
   const sendIgaChatMessageMutation = useMutation({
@@ -116,6 +120,7 @@ export const useIgaStore = defineStore('iga', () => {
     key: ['iga', 'session', route.params.id, 'questions'],
     query: () => fetchIgaQuestions(route.params.id as string),
     enabled: computed(() => !!route.params.id),
+    staleTime: 0,
   })
 
   const createIgaQuestionMutation = useMutation({
@@ -144,10 +149,6 @@ export const useIgaStore = defineStore('iga', () => {
     onSuccess: () => cache.invalidateQueries({key: ['iga', 'session', route.params.id, 'questions']}).then(),
   })
 
-  const invalidateSessionQueries = () => {
-    cache.invalidateQueries({key: ['iga', 'session', route.params.id]}).then()
-  }
-
   return {
     // State
     activeSession: activeIgaSessionQuery.data,
@@ -156,7 +157,6 @@ export const useIgaStore = defineStore('iga', () => {
     igaQuestions: igaQuestionsQuery.data,
 
     // Actions
-    invalidateSessionQueries,
     createIgaSession: createIgaSessionMutation.mutateAsync,
     updateIgaSession: updateIgaSessionMutation.mutateAsync,
     sendIgaChatMessage: sendIgaChatMessageMutation.mutateAsync,
