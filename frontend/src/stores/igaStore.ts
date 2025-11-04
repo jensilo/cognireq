@@ -79,7 +79,7 @@ export const useIgaStore = defineStore('iga', () => {
         role: 'user',
         message_text: payload.message_text,
         metadata: {type: payload.instruction},
-        created_at: new Date().toTimeString(),
+        created_at: new Date().toISOString(),
         is_optimistic: true,
       }
 
@@ -96,16 +96,6 @@ export const useIgaStore = defineStore('iga', () => {
     onSettled: (_data, _err, vars) => {
       cache.invalidateQueries({key: ['iga', 'session', vars.sessionId, 'chat']}).then()
     },
-    onSuccess: (logItem, vars, {newMessage}) => {
-      const queryKey = ['iga', 'session', vars.sessionId, 'chat']
-      const logs = cache.getQueryData<IgaChatLog[]>(queryKey) || []
-      const logIndex = logs.findIndex((l) => l.id === newMessage.id)
-      if (logIndex >= 0) {
-        const copy = logs.slice()
-        copy.splice(logIndex, 1, logItem)
-        cache.setQueryData(queryKey, copy)
-      }
-    }
   })
 
   const retryIgaChatMessageMutation = useMutation({
