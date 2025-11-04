@@ -3,15 +3,18 @@ import { ref, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
-import type { IgaScriptQuestion, UpdateIgaScriptQuestionPayload } from '@/api/igaService.ts'
+import type {
+  IgaChatLogInstructionType,
+  IgaScriptQuestion,
+  UpdateIgaScriptQuestionPayload
+} from '@/api/igaService.ts'
 
-const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: string) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
+const props = defineProps<{ sessionId: string; setChatInput: (text: string, instruction: IgaChatLogInstructionType) => void; refineContext: (contextType: string) => void; updateSessionContext: (field: 'stakeholder_summary' | 'project_summary' | 'interview_goal' | 'interview_advice', value: string) => void }>()
 
 const igaStore = useIgaStore()
 
 const activeSession = computed(() => igaStore.activeSession)
 const igaQuestions = computed(() => igaStore.igaQuestions)
-const isLoadingActiveSession = computed(() => igaStore.isLoadingActiveSession)
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
 const isSendingMessage = computed(() => igaStore.isSendingChatMessage || igaStore.isRetryingChatMessage)
 
@@ -43,7 +46,7 @@ const cancelQuestionEdit = () => {
 }
 
 const citeQuestion = (readableId: string) => {
-  if (igaStore.isSendingChatMessage) return // prevent citing while chat is sending
+  if (igaStore.isAnyActiveSessionStateLoading.value) return // prevent citing while chat is sending
   props.setChatInput(`Concerning question ${readableId}: `, 'refine-question')
 }
 </script>
@@ -61,7 +64,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="interview goal"
         class="mb-6"
-        :loading="isLoadingActiveSession || isSendingMessage"
+        :loading="igaStore.isAnyActiveSessionStateLoading.value"
       />
 
       <!-- General Interview Advice -->
@@ -72,7 +75,7 @@ const citeQuestion = (readableId: string) => {
         :on-refine="props.refineContext"
         context-type="general interview advice"
         class="mb-6"
-        :loading="isLoadingActiveSession || isSendingMessage"
+        :loading="igaStore.isAnyActiveSessionStateLoading.value"
       />
 
       <!-- Questions/Notes List -->
@@ -86,7 +89,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                  :disabled="isLoadingQuestions || isSendingMessage"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
                 >
                   Cite
                 </button>
@@ -94,7 +97,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="isLoadingQuestions || isSendingMessage"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
                 >
                   Edit
                 </button>
@@ -102,7 +105,7 @@ const citeQuestion = (readableId: string) => {
                   v-else
                   @click="saveQuestionEdit(question.id)"
                   class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
-                  :disabled="isLoadingQuestions || isSendingMessage"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
                 >
                   Save
                 </button>
@@ -110,7 +113,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="isLoadingQuestions || isSendingMessage"
+                  :disabled="igaStore.isAnyActiveSessionStateLoading.value"
                 >
                   Cancel
                 </button>
@@ -123,14 +126,14 @@ const citeQuestion = (readableId: string) => {
                 v-model="editedQuestionText"
                 class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="isLoadingQuestions || isSendingMessage"
+                :disabled="igaStore.isAnyActiveSessionStateLoading.value"
               ></textarea>
               <label class="block text-sm font-medium text-neutral-700">Note Text</label>
               <textarea
                 v-model="editedNoteText"
                 class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="isLoadingQuestions || isSendingMessage"
+                :disabled="igaStore.isAnyActiveSessionStateLoading.value"
               ></textarea>
             </div>
             <div v-else>
