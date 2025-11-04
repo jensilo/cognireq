@@ -7,6 +7,7 @@ import { useIgaStore } from '@/stores/igaStore.ts'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { IgaChatLogInstructionType, UpdateIgaSessionPayload } from '@/api/igaService.ts'
+import LoadingSpinner from "@/components/LoadingSpinner.vue";
 
 const igaStore = useIgaStore()
 const route = useRoute()
@@ -54,7 +55,11 @@ const refineContext = (contextType: string) => {
 <template>
   <BaseLayout>
     <div class="flex flex-col h-full">
-      <div v-if="!igaStore.isLoadingActiveSession && igaStore.errorActiveSession" class="p-4 text-center text-red-500">
+      <div v-if="igaStore.isLoadingActiveSession && !igaStore.activeSession">
+        <LoadingSpinner />
+      </div>
+
+      <div v-else-if="!igaStore.isLoadingActiveSession && igaStore.errorActiveSession" class="p-4 text-center text-red-500">
         <p>Error loading session: {{ $t(igaStore.errorActiveSession.message) }}</p>
         <button @click="goBack" class="text-md cursor-pointer text-indigo-600 hover:underline mt-2">
           Go to Session List

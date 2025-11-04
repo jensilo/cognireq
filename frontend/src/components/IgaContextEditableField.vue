@@ -15,7 +15,6 @@ const props = defineProps({
 const emit = defineEmits(['updateField'])
 
 const internalValue = ref(props.modelValue)
-const internalLoading = ref(props.loading)
 
 onMounted(() => {
   internalValue.value = props.modelValue
@@ -46,8 +45,8 @@ const handleBlur = () => {
       @blur="handleBlur"
       :placeholder="placeholder"
       :rows="rows"
-      :disabled="internalLoading"
-      :class="{ 'cursor-progress': internalLoading }"
+      :disabled="loading"
+      :class="{ 'cursor-progress': loading }"
       class="w-full p-1 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
     ></textarea>
   </div>
