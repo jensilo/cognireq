@@ -86,7 +86,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   @click="citeQuestion(question.readable_id)"
                   class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                  :disabled="igaStore.isSendingChatMessage"
+                  :disabled="isLoadingQuestions || isSendingMessage"
                 >
                   Cite
                 </button>
@@ -94,7 +94,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
                   class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
-                  :disabled="igaStore.isSendingChatMessage"
+                  :disabled="isLoadingQuestions || isSendingMessage"
                 >
                   Edit
                 </button>
@@ -102,7 +102,7 @@ const citeQuestion = (readableId: string) => {
                   v-else
                   @click="saveQuestionEdit(question.id)"
                   class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
-                  :disabled="igaStore.isSendingChatMessage"
+                  :disabled="isLoadingQuestions || isSendingMessage"
                 >
                   Save
                 </button>
@@ -110,7 +110,7 @@ const citeQuestion = (readableId: string) => {
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
                   class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
-                  :disabled="igaStore.isSendingChatMessage"
+                  :disabled="isLoadingQuestions || isSendingMessage"
                 >
                   Cancel
                 </button>
@@ -123,14 +123,14 @@ const citeQuestion = (readableId: string) => {
                 v-model="editedQuestionText"
                 class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="igaStore.isSendingChatMessage"
+                :disabled="isLoadingQuestions || isSendingMessage"
               ></textarea>
               <label class="block text-sm font-medium text-neutral-700">Note Text</label>
               <textarea
                 v-model="editedNoteText"
                 class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
                 rows="2"
-                :disabled="igaStore.isSendingChatMessage"
+                :disabled="isLoadingQuestions || isSendingMessage"
               ></textarea>
             </div>
             <div v-else>
