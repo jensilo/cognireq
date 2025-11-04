@@ -14,8 +14,7 @@ const route = useRoute()
 const router = useRouter()
 
 const sessionId = computed(() => route.params.id as string)
-const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
-
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading.value)
 
 const chatInterfaceRef = ref<InstanceType<typeof IgaChatInterface> | null>(null)
 const showChatOnMobile = ref(false)

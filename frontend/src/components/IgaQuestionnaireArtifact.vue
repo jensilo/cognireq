@@ -22,7 +22,7 @@ const igaQuestions = computed(() => {
   return [...igaStore.igaQuestions].sort((a, b) => a.sort_order - b.sort_order)
 })
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
-const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading.value)
 
 const editingQuestionId = ref<string | null>(null)
 const editedQuestionText = ref('')
@@ -55,6 +55,7 @@ const cancelQuestionEdit = () => {
 }
 
 const addQuestion = async () => {
+  console.log(props.sessionId, !!isIgaLoading.value)
   if (!props.sessionId || isIgaLoading.value) return
 
   const sortOrder = igaQuestions.value.length > 0 ? igaQuestions.value[igaQuestions.value.length - 1].sort_order + 1 : 0;
@@ -236,6 +237,9 @@ const citeQuestion = (readableId: string) => {
             <div v-if="editingQuestionId === question.id">
               <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.question-text-label') }}</label>
               <textarea
+                v-model="editedQuestionText"
+                class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
+                rows="2"
                 :disabled="isIgaLoading.value"
               ></textarea>
               <label class="block text-sm font-medium text-neutral-700">{{ $t('iga.questionnaire.note-text-label') }}</label>

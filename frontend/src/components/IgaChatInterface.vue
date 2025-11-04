@@ -12,7 +12,7 @@ const selectedInstruction = ref<IgaChatLogInstructionType | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 
 const chatLogs = computed(() => igaStore.igaChatLogs)
-const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading.value)
 
 
 watch(chatLogs, () => {
