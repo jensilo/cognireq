@@ -324,7 +324,7 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 	//  - Fetch conversation history.
 	//  - Call NLP service.
 	//  - For now, we'll just create a stubbed response.
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(2000 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,

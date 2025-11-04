@@ -30,7 +30,7 @@ const navigateToCreateSession = () => {
 
       <div v-else-if="igaStore.errorSessions" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6">
         <strong class="font-bold">Error! </strong>
-        <span class="block sm:inline"> {{ $t(igaStore.errorSessions.message) }}</span>
+        <span class="block sm:inline"> {{ $t(`error.${igaStore.errorSessions.message}`) }}</span>
       </div>
 
       <div v-else-if="hasSessions" class="mb-8">
