@@ -10,6 +10,7 @@ import {
   fetchIgaQuestions,
   fetchIgaSession,
   fetchIgaSessions,
+  type IgaChatLog,
   retryIgaChatMessage,
   type SendChatPayload,
   sendIgaChatMessage,
@@ -18,30 +19,31 @@ import {
   updateIgaSession,
   type UpdateIgaSessionPayload,
 } from '@/api/igaService.ts'
-import {computed, ref} from 'vue'
+import {useRoute} from "vue-router";
+import {computed} from "vue";
 
 export const useIgaStore = defineStore('iga', () => {
   const cache = useQueryCache()
-  const activeSessionId = ref<string | null>(null)
+  const route = useRoute()
 
   // --- IGA Sessions ---
   const igaSessionsQuery = useQuery({
     key: ['iga', 'sessions'],
     query: fetchIgaSessions,
+    refetchOnMount: true,
   })
 
   const createIgaSessionMutation = useMutation({
     mutation: (payload: CreateIgaSessionPayload) => createIgaSession(payload),
-    onSuccess: (newSession) => {
-      igaSessionsQuery.refetch().then()
-      activeSessionId.value = newSession.id
-    },
+    onSuccess: () => cache.invalidateQueries({key: ['iga', 'sessions']}),
   })
 
   const activeIgaSessionQuery = useQuery({
-    key: () => ['iga', 'session', activeSessionId.value],
-    query: () => fetchIgaSession(activeSessionId.value ?? ''),
-    enabled: computed(() => !!activeSessionId.value),
+    key: () => ['iga', 'session', route.params.id],
+    query: () => fetchIgaSession(route.params.id as string),
+    enabled: computed(() => !!route.params.id),
+    refetchOnMount: true,
+    staleTime: 0,
   })
 
   const updateIgaSessionMutation = useMutation({
@@ -50,16 +52,17 @@ export const useIgaStore = defineStore('iga', () => {
       payload: UpdateIgaSessionPayload
     }) => updateIgaSession(id, payload),
     onSuccess: () => {
-      activeIgaSessionQuery.refetch().then()
-      igaSessionsQuery.refetch().then()
+      cache.invalidateQueries({key: ['iga', 'sessions']})
+      cache.invalidateQueries({key: ['iga', 'session', route.params.id]})
     },
   })
 
   // --- IGA Chat Logs ---
   const igaChatLogsQuery = useQuery({
-    key: ['iga', 'session', activeSessionId.value, 'chat'],
-    query: () => fetchIgaChatLog(activeSessionId.value ?? ''),
-    enabled: computed(() => !!activeSessionId.value),
+    key: ['iga', 'session', route.params.id, 'chat'],
+    query: () => fetchIgaChatLog(route.params.id as string),
+    enabled: computed(() => !!route.params.id),
+    staleTime: 0,
   })
 
   const sendIgaChatMessageMutation = useMutation({
@@ -67,27 +70,58 @@ export const useIgaStore = defineStore('iga', () => {
       sessionId: string;
       payload: SendChatPayload
     }) => sendIgaChatMessage(sessionId, payload),
-    onSuccess: () => {
-      igaChatLogsQuery.refetch().then()
-      activeIgaSessionQuery.refetch().then() // session might update after chat message
-      igaQuestionsQuery.refetch().then() // questions might update after chat message
+    onMutate: async ({sessionId, payload}) => {
+      const queryKey = ['iga', 'session', sessionId, 'chat']
+      const oldLogs = cache.getQueryData<IgaChatLog[]>(queryKey)
+      if (oldLogs === undefined) {
+        return
+      }
+
+      // optimistically update the chat logs
+      const newMessage: IgaChatLog = {
+        id: crypto.randomUUID(),
+        iga_session_id: sessionId,
+        role: 'user',
+        message_text: payload.message_text,
+        metadata: {type: payload.instruction},
+        created_at: new Date().toISOString(),
+        is_optimistic: true,
+      }
+
+      const newLogs: IgaChatLog[] = [
+        ...(oldLogs || []),
+        newMessage
+      ]
+      cache.setQueryData(queryKey, newLogs)
+      cache.cancelQueries({key: queryKey})
+
+      return {newLogs, oldLogs, newMessage}
+    },
+    onSettled: (_data, _err, _var, {oldLogs, newMessage}) => {
+      if (newMessage) {
+        const queryKey = ['iga', 'session', newMessage.iga_session_id, 'chat']
+        cache.invalidateQueries({key: queryKey})
+      }
+
+      if (oldLogs === undefined) {
+        igaChatLogsQuery.refetch()
+      }
     },
   })
 
   const retryIgaChatMessageMutation = useMutation({
     mutation: (sessionId: string) => retryIgaChatMessage(sessionId),
     onSuccess: () => {
-      igaChatLogsQuery.refetch().then()
-      activeIgaSessionQuery.refetch().then()
-      igaQuestionsQuery.refetch().then()
+      cache.invalidateQueries({key: ['iga', 'session', route.params.id]})
     },
   })
 
   // --- IGA Questions ---
   const igaQuestionsQuery = useQuery({
-    key: ['iga', 'session', activeSessionId.value, 'questions'],
-    query: () => fetchIgaQuestions(activeSessionId.value ?? ''),
-    enabled: computed(() => !!activeSessionId.value),
+    key: ['iga', 'session', route.params.id, 'questions'],
+    query: () => fetchIgaQuestions(route.params.id as string),
+    enabled: computed(() => !!route.params.id),
+    staleTime: 0,
   })
 
   const createIgaQuestionMutation = useMutation({
@@ -116,26 +150,14 @@ export const useIgaStore = defineStore('iga', () => {
     onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
-  const selectSession = (id: string) => {
-    activeSessionId.value = id
-  }
-
-  const clearActiveSession = async () => {
-    await cache.invalidateQueries({ key: ['iga', 'session', activeSessionId.value] })
-    activeSessionId.value = null
-  }
-
   return {
     // State
-    activeSessionId,
     activeSession: activeIgaSessionQuery.data,
     igaSessions: igaSessionsQuery.data,
     igaChatLogs: igaChatLogsQuery.data,
     igaQuestions: igaQuestionsQuery.data,
 
     // Actions
-    selectSession,
-    clearActiveSession,
     createIgaSession: createIgaSessionMutation.mutateAsync,
     updateIgaSession: updateIgaSessionMutation.mutateAsync,
     sendIgaChatMessage: sendIgaChatMessageMutation.mutateAsync,
@@ -156,6 +178,18 @@ export const useIgaStore = defineStore('iga', () => {
     isUpdatingQuestion: updateIgaQuestionMutation.isLoading,
     isCreatingQuestion: createIgaQuestionMutation.isLoading,
     isDeletingQuestion: deleteIgaQuestionMutation.isLoading,
+    isAnyActiveSessionStateLoading: computed(() => {
+      return activeIgaSessionQuery.isLoading.value ||
+        igaChatLogsQuery.isLoading.value ||
+        igaQuestionsQuery.isLoading.value ||
+        createIgaSessionMutation.isLoading.value ||
+        sendIgaChatMessageMutation.isLoading.value ||
+        retryIgaChatMessageMutation.isLoading.value ||
+        updateIgaSessionMutation.isLoading.value ||
+        updateIgaQuestionMutation.isLoading.value ||
+        createIgaQuestionMutation.isLoading.value ||
+        deleteIgaQuestionMutation.isLoading.value
+    }),
 
     // Errors
     errorSessions: igaSessionsQuery.error,

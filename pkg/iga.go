@@ -58,15 +58,20 @@ func intoIGASession(session db.IgaSession) (types.IGASession, error) {
 		return types.IGASession{}, fmt.Errorf("failed to parse system metadata for IGA session %s: %w", session.ID, err)
 	}
 
-	return types.IGASession{
+	sess := types.IGASession{
 		ID:             session.ID,
 		UserID:         session.UserID,
 		ProjectName:    session.ProjectName,
 		ContextData:    contextData,
 		SystemMetadata: systemMetadata,
 		CreatedAt:      session.CreatedAt.Time,
-		UpdatedAt:      session.UpdatedAt.Time,
-	}, nil
+	}
+
+	if session.UpdatedAt.Valid {
+		sess.UpdatedAt = &session.UpdatedAt.Time
+	}
+
+	return sess, nil
 }
 
 func intoIGASessions(sessions []db.IgaSession) ([]types.IGASession, error) {
@@ -121,7 +126,7 @@ func (is *IGAService) CreateSession(ctx context.Context, toCreate types.IGASessi
 		ContextData:    contextData,
 		SystemMetadata: systemMetadata,
 		CreatedAt:      session.CreatedAt.Time,
-		UpdatedAt:      session.CreatedAt.Time,
+		UpdatedAt:      nil,
 	}, nil
 }
 
@@ -287,6 +292,11 @@ func (is *IGAService) CreateMessage(
 		return nil, err
 	}
 
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
 	return &converted, nil
 }
 
@@ -314,6 +324,7 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 	//  - Fetch conversation history.
 	//  - Call NLP service.
 	//  - For now, we'll just create a stubbed response.
+	time.Sleep(2000 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,
@@ -325,6 +336,11 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +371,7 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 	//  have been interrupted prematurely.
 	//  - The history to send to the model would be `logs[1:]` or `logs` (excluding the last assistant message if available).
 	//  - For now, we'll just create a new stubbed response.
+	time.Sleep(100 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,
@@ -365,6 +382,11 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}

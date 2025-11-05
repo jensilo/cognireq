@@ -74,7 +74,7 @@ type IGASession struct {
 	ContextData    IGASessionContextData
 	SystemMetadata IGASessionSystemMetadata
 	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	UpdatedAt      *time.Time
 }
 
 type IGASessionToCreate struct {
@@ -93,6 +93,10 @@ type IGASessionToUpdate struct {
 type IGAScriptQuestionMetadata struct{}
 
 func IntoIGAScriptQuestionMetadata(b []byte) (IGAScriptQuestionMetadata, error) {
+	if len(b) < 1 {
+		return IGAScriptQuestionMetadata{}, nil
+	}
+
 	var d IGAScriptQuestionMetadata
 	err := json.Unmarshal(b, &d)
 	if err != nil {
@@ -160,6 +164,10 @@ type IGAChatLogMetadata struct {
 }
 
 func IntoIGAChatLogMetadata(b []byte) (IGAChatLogMetadata, error) {
+	if len(b) < 1 {
+		return IGAChatLogMetadata{}, nil
+	}
+
 	var d IGAChatLogMetadata
 	err := json.Unmarshal(b, &d)
 	if err != nil {

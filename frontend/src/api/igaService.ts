@@ -45,6 +45,7 @@ export interface IgaChatLog {
   message_text: string
   metadata: IgaChatLogMetadata
   created_at: string
+  is_optimistic: boolean
 }
 
 export interface SendChatPayload {

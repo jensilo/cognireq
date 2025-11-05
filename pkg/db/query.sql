@@ -48,7 +48,7 @@ DELETE FROM sessions WHERE sessions.expiry_at < NOW();
 -- name: IGASessionsByUser :many
 SELECT * FROM iga_sessions
 WHERE user_id = $1
-ORDER BY updated_at DESC;
+ORDER BY updated_at DESC, created_at DESC;
 
 -- name: CreateIGASession :one
 INSERT INTO iga_sessions (user_id, project_name, context_data, system_metadata)
@@ -69,6 +69,12 @@ SET
 WHERE id = sqlc.arg('id') AND user_id = sqlc.arg('user_id')
 RETURNING *;
 
+-- name: UpdatedIGASession :one
+UPDATE iga_sessions
+SET updated_at = CURRENT_TIMESTAMP
+WHERE id = $2 AND user_id = $1
+RETURNING *;
+
 
 ---
 --- IGA Chat Log Management ---
@@ -85,7 +91,7 @@ SELECT EXISTS(
 SELECT iga_chat_logs.* FROM iga_chat_logs
 INNER JOIN iga_sessions ON iga_chat_logs.iga_session_id = iga_sessions.id
 WHERE iga_sessions.id = $2 AND iga_sessions.user_id = $1
-ORDER BY iga_chat_logs.created_at DESC;
+ORDER BY iga_chat_logs.created_at;
 
 -- name: CreateIGAChatLog :one
 INSERT INTO iga_chat_logs (iga_session_id, role, message_text, metadata)

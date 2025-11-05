@@ -4,7 +4,7 @@
     "title": "CogniReq - The AI-Native Requirements Clarity Platform - FOSS"
   },
   "nav": {
-    "interview-guide-assist": "Interview Guide Assist",
+    "iga-list": "Interview Guide Assist",
     "about": "About",
     "logout": "Logout"
   },
@@ -36,10 +36,69 @@
     "EMAIL_EXISTS": "An account with this email already exists. Please login.",
     "INVALID_CREDENTIALS": "The email and password combination is incorrect.",
 
+    "AUTHORIZATION_ERROR": "Login expired, please log in again.",
+
     "CLIENT_NETWORK_CONNECTION_ERROR": "Could not connect to the server. Check your network.",
     "CLIENT_UNKNOWN_ERROR": "An unknown error occurred. Please try again."
   },
   "iga": {
-    "chat-input-placeholder": "Type your message or command..."
+    "context-editable-field-ai-enhance": "AI Enhance",
+    "chat": {
+      "input-placeholder": "Type your message or command...",
+      "message-button": "Message",
+      "refine-question-button": "Refine Question",
+      "refine-context-button": "Refine Context",
+      "send-button": "Send",
+      "start-conversation": "Start a conversation with the Interview Guide Assistant!"
+    },
+    "questionnaire": {
+      "questions-notes-heading": "Questions & Notes",
+      "add-new-question-button": "Add New Question",
+      "move-up-button": "Move Up",
+      "move-down-button": "Move Down",
+      "cite-button": "Cite",
+      "edit-button": "Edit",
+      "delete-button": "Delete",
+      "save-button": "Save",
+      "cancel-button": "Cancel",
+      "question-text-label": "Question Text",
+      "note-text-label": "Note Text",
+      "new-question-placeholder": "New Question (Please Edit)",
+      "no-questions-message": "No questions generated yet. Start a conversation in the chat to generate some!",
+      "select-session-message": "Select or create an IGA session to view the questionnaire artifact.",
+      "confirm-deletion-title": "Confirm Deletion",
+      "confirm-deletion-message": "Are you sure you want to delete this question? This action cannot be undone.",
+      "modal-cancel-button": "Cancel",
+      "modal-delete-button": "Delete"
+    },
+    "active-session": {
+      "error-loading-session": "Error loading session:",
+      "go-to-session-list": "Go to Session List",
+      "session-not-found": "Session not found.",
+      "back-button": "Back",
+      "stakeholder-summary-label": "Stakeholder Summary",
+      "project-summary-label": "Project Summary",
+      "created-label": "Created:",
+      "updated-label": "Updated:",
+      "chat-button": "Chat",
+      "questionnaire-button": "Questionnaire"
+    },
+    "create-session": {
+      "title": "Create New IGA Session",
+      "project-name-label": "Project Name",
+      "stakeholder-summary-label": "Stakeholder Summary",
+      "project-summary-label": "Project Summary",
+      "creating-button": "Creating...",
+      "create-session-button": "Create Session"
+    },
+    "session-list": {
+      "title": "Interview Guide Assist Sessions",
+      "your-sessions-heading": "Your Sessions",
+      "created-label": "Created:",
+      "updated-label": "Updated:",
+      "not-yet-text": "not yet",
+      "no-sessions-message": "No IGA sessions found. Create a new one to get started!",
+      "create-new-session-button": "Create New Session"
+    }
   }
 }

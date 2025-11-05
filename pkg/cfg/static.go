@@ -36,7 +36,7 @@ func DefaultGetEnv(key string) string {
 	case CORSAllowCredentials:
 		return "true"
 	case CORSAllowMethods:
-		return "GET, POST, OPTIONS"
+		return "GET, POST, PATCH, DELETE, OPTIONS"
 	case CORSAllowHeaders:
 		return "Content-Type"
 	default:
