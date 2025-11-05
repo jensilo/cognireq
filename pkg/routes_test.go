@@ -847,12 +847,12 @@ func TestGetChatLog(t *testing.T) {
 		err = json.NewDecoder(res.Body).Decode(&chatLogs)
 		require.NoError(t, err)
 		assert.Len(t, chatLogs, 2)
-		assert.Equal(t, APIIgaChatLogRole("assistant"), chatLogs[0].Role)
-		assert.Equal(t, "Hi there!", chatLogs[0].MessageText)
-		assert.Equal(t, APIIgaChatLogRole("user"), chatLogs[1].Role)
-		assert.Equal(t, "Hello", chatLogs[1].MessageText)
-		t.Log("user", chatLogs[1].MessageText)
-		t.Log("assistant", chatLogs[0].MessageText)
+		assert.Equal(t, APIIgaChatLogRole("user"), chatLogs[0].Role)
+		assert.Equal(t, "Hello", chatLogs[0].MessageText)
+		assert.Equal(t, APIIgaChatLogRole("assistant"), chatLogs[1].Role)
+		assert.Equal(t, "Hi there!", chatLogs[1].MessageText)
+		t.Log("user", chatLogs[0].MessageText)
+		t.Log("assistant", chatLogs[1].MessageText)
 	})
 
 	t.Run("malformed session ID", func(t *testing.T) {
@@ -940,10 +940,10 @@ func TestSendChatController(t *testing.T) {
 		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
 		require.NoError(t, err)
 		require.Len(t, logs, 2)
-		assert.Equal(t, messageText, logs[1].MessageText)
-		assert.Equal(t, types.IGAChatLogRoleUser, logs[1].Role)
-		t.Log("message", logs[1].MessageText, "role", logs[1].Role, "created at", logs[1].CreatedAt)
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
 		t.Log("message", logs[0].MessageText, "role", logs[0].Role, "created at", logs[0].CreatedAt)
+		t.Log("message", logs[1].MessageText, "role", logs[1].Role, "created at", logs[1].CreatedAt)
 	})
 
 	t.Run("unauthenticated", func(t *testing.T) {
