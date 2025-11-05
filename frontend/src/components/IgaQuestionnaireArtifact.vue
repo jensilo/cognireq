@@ -174,7 +174,7 @@ const citeQuestion = (readableId: string) => {
           {{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
         <button
           @click="addQuestion"
-          class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer disabled:cursor-progress disabled:bg-indigo-400"
           :disabled="isIgaLoading"
         >
           {{ $t('iga.questionnaire.add-new-question-button') }}
@@ -188,7 +188,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   @click="moveQuestionUp(question.id)"
                   v-if="question.sort_order > 0"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading || editingQuestionId === question.id"
                 >
                   {{ $t('iga.questionnaire.move-up-button') }}
@@ -196,14 +196,14 @@ const citeQuestion = (readableId: string) => {
                 <button
                   @click="moveQuestionDown(question.id)"
                   v-if="question.sort_order < igaQuestions.length - 1"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading || editingQuestionId === question.id"
                 >
                   {{ $t('iga.questionnaire.move-down-button') }}
                 </button>
                 <button
                   @click="citeQuestion(question.readable_id)"
-                  class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.cite-button') }}
@@ -211,7 +211,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   v-if="editingQuestionId !== question.id"
                   @click="startEditingQuestion(question)"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer"
+                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.edit-button') }}
@@ -219,7 +219,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   v-if="editingQuestionId !== question.id"
                   @click="showDeleteConfirmation(question.id)"
-                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.delete-button') }}
@@ -227,7 +227,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   v-else
                   @click="saveQuestionEdit(question.id)"
-                  class="text-sm text-green-600 hover:text-green-800 cursor-pointer"
+                  class="text-sm text-green-600 hover:text-green-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.save-button') }}
@@ -235,7 +235,7 @@ const citeQuestion = (readableId: string) => {
                 <button
                   v-if="editingQuestionId === question.id"
                   @click="cancelQuestionEdit"
-                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
                   :disabled="isIgaLoading"
                 >
                   {{ $t('iga.questionnaire.cancel-button') }}
@@ -249,7 +249,7 @@ const citeQuestion = (readableId: string) => {
                 }}</label>
               <textarea
                 v-model="editedQuestionText"
-                class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
+                class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
                 rows="2"
                 :disabled="isIgaLoading"
               ></textarea>
@@ -258,7 +258,7 @@ const citeQuestion = (readableId: string) => {
                 }}</label>
               <textarea
                 v-model="editedNoteText"
-                class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700"
+                class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
                 rows="2"
                 :disabled="isIgaLoading"
               ></textarea>

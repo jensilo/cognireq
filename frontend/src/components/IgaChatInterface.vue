@@ -128,7 +128,7 @@ defineExpose({ setChatInput })
           type="text"
           v-model="chatInput"
           :placeholder="$t('iga.chat.input-placeholder')"
-          class="flex-1 p-3 border border-neutral-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="flex-1 p-3 border border-neutral-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-neutral-100 disabled:cursor-progress"
           :disabled="isIgaLoading"
         />
         <button
