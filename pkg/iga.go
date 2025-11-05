@@ -515,6 +515,11 @@ func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCr
 		return nil, err
 	}
 
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: question.IgaSessionID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
 	converted, err := intoIGAScriptQuestion(question)
 	if err != nil {
 		return nil, err
@@ -555,6 +560,11 @@ func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, ques
 		return nil, err
 	}
 
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: question.IgaSessionID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+
 	converted, err := intoIGAScriptQuestion(question)
 	if err != nil {
 		return nil, err
@@ -575,6 +585,11 @@ func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, que
 
 	if rowsAffected == 0 {
 		return ErrNotFound
+	}
+
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	if err != nil {
+		return err
 	}
 
 	return nil
