@@ -281,7 +281,7 @@ const citeQuestion = (readableId: string) => {
 
     <!-- Delete Confirmation Modal -->
     <div v-if="isDeleteConfirmationModalOpen"
-         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+         class="fixed inset-0 bg-[rgba(75,85,99,0.5)] overflow-y-auto h-full w-full flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm mx-auto">
         <h3 class="text-lg font-bold mb-4">{{ $t('iga.questionnaire.confirm-deletion-title') }}</h3>
         <p class="mb-6">{{ $t('iga.questionnaire.confirm-deletion-message') }}</p>
