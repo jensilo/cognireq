@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed, nextTick, ref} from 'vue'
 import {useIgaStore} from '@/stores/igaStore.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import IgaContextEditableField from '@/components/IgaContextEditableField.vue'
@@ -35,6 +35,8 @@ const editedNoteText = ref('')
 
 const isDeleteConfirmationModalOpen = ref(false)
 const questionToDeleteId = ref<string | null>(null)
+
+const questionnaireRoot = ref<HTMLElement | null>(null)
 
 const startEditingQuestion = (question: IgaScriptQuestion) => {
   if (isIgaLoading.value) return // prevent editing while chat is sending
@@ -72,6 +74,12 @@ const addQuestion = async () => {
 
   await igaStore.createIgaQuestion({sessionId: props.sessionId, payload})
   editingQuestionId.value = null // clear any active editing after adding a new question
+
+  nextTick(() => {
+    if (questionnaireRoot.value) {
+      questionnaireRoot.value.scrollTop = questionnaireRoot.value.scrollHeight
+    }
+  })
 }
 
 const showDeleteConfirmation = (questionId: string) => {
@@ -143,7 +151,7 @@ const citeQuestion = (readableId: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-white p-4 overflow-y-auto">
+  <div class="flex flex-col h-full bg-white p-4 overflow-y-auto" ref="questionnaireRoot">
     <LoadingSpinner v-if="isLoadingQuestions && !activeSession"/>
 
     <div v-else-if="activeSession">
