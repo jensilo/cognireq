@@ -1,7 +1,18 @@
+<script setup lang="ts">
+interface Props {
+  isInverted?: boolean
+}
+
+withDefaults(defineProps<Props>(), {
+  isInverted: false,
+})
+</script>
+
 <template>
-  <div class="flex items-center justify-center p-4">
+  <div class="flex items-center justify-center">
     <svg
-      class="animate-spin h-8 w-8 text-indigo-500"
+      class="animate-spin h-8 w-8"
+      :class="isInverted ? 'text-white' : 'text-indigo-500'"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"

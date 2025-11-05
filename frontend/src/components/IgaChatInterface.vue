@@ -138,7 +138,7 @@ defineExpose({ setChatInput })
           class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-400 cursor-pointer"
         >
           <span v-if="isIgaLoading">
-            <LoadingSpinner class="w-5 h-5" />
+            <LoadingSpinner class="w-5 h-5" :is-inverted="true" />
           </span>
           <span v-else>{{ $t('iga.chat.send-button') }}</span>
         </button>

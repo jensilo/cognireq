@@ -11,4 +11,4 @@ The AI-Native Requirements Clarity Platform.
 
 ## Frontend
 - [ ] Fix sorting order on questionnaire
-- [ ] Improve loading state indications (e.g. when chat is sent)
+- [X] Improve loading state indications (e.g. when chat is sent)
