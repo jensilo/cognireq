@@ -27,7 +27,7 @@ const igaQuestions = computed(() => {
   return [...igaStore.igaQuestions].sort((a, b) => a.sort_order - b.sort_order)
 })
 const isLoadingQuestions = computed(() => igaStore.isLoadingQuestions)
-const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading.value)
+const isIgaLoading = computed(() => igaStore.isAnyActiveSessionStateLoading)
 
 const editingQuestionId = ref<string | null>(null)
 const editedQuestionText = ref('')

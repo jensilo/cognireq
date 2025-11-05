@@ -179,16 +179,16 @@ export const useIgaStore = defineStore('iga', () => {
     isCreatingQuestion: createIgaQuestionMutation.isLoading,
     isDeletingQuestion: deleteIgaQuestionMutation.isLoading,
     isAnyActiveSessionStateLoading: computed(() => {
-      return activeIgaSessionQuery.isLoading ||
-        igaChatLogsQuery.isLoading ||
-        igaQuestionsQuery.isLoading ||
-        createIgaSessionMutation.isLoading ||
-        sendIgaChatMessageMutation.isLoading ||
-        retryIgaChatMessageMutation.isLoading ||
-        updateIgaSessionMutation.isLoading ||
-        updateIgaQuestionMutation.isLoading ||
-        createIgaQuestionMutation.isLoading ||
-        deleteIgaQuestionMutation.isLoading
+      return activeIgaSessionQuery.isLoading.value ||
+        igaChatLogsQuery.isLoading.value ||
+        igaQuestionsQuery.isLoading.value ||
+        createIgaSessionMutation.isLoading.value ||
+        sendIgaChatMessageMutation.isLoading.value ||
+        retryIgaChatMessageMutation.isLoading.value ||
+        updateIgaSessionMutation.isLoading.value ||
+        updateIgaQuestionMutation.isLoading.value ||
+        createIgaQuestionMutation.isLoading.value ||
+        deleteIgaQuestionMutation.isLoading.value
     }),
 
     // Errors
