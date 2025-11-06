@@ -10,6 +10,7 @@ delay = 300
 exclude_dir = ["tmp", "vendor", "testdata", "docker", "frontend"]
 exclude_file = [
     "pkg/db/db.go",
+    "pkg/db/batch.go",
     "pkg/db/models.go",
     "pkg/db/querier.go",
     "pkg/db/query.sql.go",

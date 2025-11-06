@@ -142,3 +142,14 @@ DELETE FROM iga_script_questions
 WHERE
     iga_script_questions.id = $3 AND iga_session_id = $2
     AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1);
+
+-- name: IGAScriptQuestionByID :one
+SELECT iga_script_questions.* FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_script_questions.id = sqlc.arg('iga_script_question_id') AND iga_sessions.id = sqlc.arg('iga_session_id') AND iga_sessions.user_id = sqlc.arg('user_id');
+
+-- name: UpdateIGAScriptQuestionSortOrder :batchexec
+UPDATE iga_script_questions
+SET sort_order = $2
+WHERE id = $1;
+

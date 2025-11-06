@@ -422,6 +422,28 @@ func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionI
 	return intoIGAScriptQuestions(questions)
 }
 
+func (is *IGAService) NormalizeQuestionnaireSorting(ctx context.Context, userID, sessionID uuid.UUID) error {
+	questions, err := is.QuestionsBySessionID(ctx, userID, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get questions for session %s: %w", sessionID, err)
+	}
+
+	normalizedQuestions := normalizeQuestionSortOrder(questions)
+
+	sortOrderUpdate := make([]db.UpdateIGAScriptQuestionSortOrderParams, len(normalizedQuestions))
+	for i, q := range normalizedQuestions {
+		sortOrderUpdate[i] = db.UpdateIGAScriptQuestionSortOrderParams{ID: q.ID, SortOrder: q.SortOrder}
+	}
+
+	batch := is.queries.UpdateIGAScriptQuestionSortOrder(ctx, sortOrderUpdate)
+	batch.Exec(nil)
+	if err := batch.Close(); err != nil {
+		return fmt.Errorf("failed to normalize questionnaire sorting after creating question: %w", err)
+	}
+
+	return nil
+}
+
 func intoIGAScriptQuestion(q db.IgaScriptQuestion) (types.IGAScriptQuestion, error) {
 	metadata, err := types.IntoIGAScriptQuestionMetadata(q.Metadata)
 	if err != nil {
@@ -458,6 +480,16 @@ func intoIGAScriptQuestions(questions []db.IgaScriptQuestion) ([]types.IGAScript
 	}
 
 	return scriptQuestions, allErrors
+}
+
+func normalizeQuestionSortOrder(questions []types.IGAScriptQuestion) []types.IGAScriptQuestion {
+	normalizedQuestions := make([]types.IGAScriptQuestion, len(questions))
+	for i, q := range questions {
+		q.SortOrder = int16(i)
+		normalizedQuestions[i] = q
+	}
+
+	return normalizedQuestions
 }
 
 func (is *IGAService) generateUniqueReadableID(ctx context.Context, sessionID uuid.UUID) (string, error) {
@@ -520,12 +552,25 @@ func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCr
 		return nil, err
 	}
 
-	converted, err := intoIGAScriptQuestion(question)
+	if err := is.NormalizeQuestionnaireSorting(ctx, userID, toCreate.IGASessionID); err != nil {
+		return nil, err
+	}
+
+	refetchedQuestion, err := is.queries.IGAScriptQuestionByID(ctx, db.IGAScriptQuestionByIDParams{
+		UserID:              userID,
+		IgaSessionID:        toCreate.IGASessionID,
+		IgaScriptQuestionID: question.ID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to refetch created question after normalization: %w", err)
+	}
+
+	convertedRefetched, err := intoIGAScriptQuestion(refetchedQuestion)
 	if err != nil {
 		return nil, err
 	}
 
-	return &converted, nil
+	return &convertedRefetched, nil
 }
 
 func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID, toUpdate types.IGAScriptQuestionToUpdate) (*types.IGAScriptQuestion, error) {
@@ -565,12 +610,25 @@ func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, ques
 		return nil, err
 	}
 
-	converted, err := intoIGAScriptQuestion(question)
+	if err := is.NormalizeQuestionnaireSorting(ctx, userID, sessionID); err != nil {
+		return nil, err
+	}
+
+	refetchedQuestion, err := is.queries.IGAScriptQuestionByID(ctx, db.IGAScriptQuestionByIDParams{
+		UserID:              userID,
+		IgaSessionID:        sessionID,
+		IgaScriptQuestionID: questionID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to refetch patched question after normalization: %w", err)
+	}
+
+	convertedRefetched, err := intoIGAScriptQuestion(refetchedQuestion)
 	if err != nil {
 		return nil, err
 	}
 
-	return &converted, nil
+	return &convertedRefetched, nil
 }
 
 func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, questionID uuid.UUID) error {
@@ -589,6 +647,10 @@ func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, que
 
 	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
 	if err != nil {
+		return err
+	}
+
+	if err := is.NormalizeQuestionnaireSorting(ctx, userID, sessionID); err != nil {
 		return err
 	}
 

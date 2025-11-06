@@ -24,6 +24,7 @@ type Querier interface {
 	DeleteIGAScriptQuestion(ctx context.Context, arg DeleteIGAScriptQuestionParams) (int64, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	IGAChatLogsBySessionID(ctx context.Context, arg IGAChatLogsBySessionIDParams) ([]IgaChatLog, error)
+	IGAScriptQuestionByID(ctx context.Context, arg IGAScriptQuestionByIDParams) (IgaScriptQuestion, error)
 	IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error)
 	//-
 	//- IGA Questions Management ---
@@ -41,6 +42,7 @@ type Querier interface {
 	PatchIGAScriptQuestion(ctx context.Context, arg PatchIGAScriptQuestionParams) (IgaScriptQuestion, error)
 	PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error)
 	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
+	UpdateIGAScriptQuestionSortOrder(ctx context.Context, arg []UpdateIGAScriptQuestionSortOrderParams) *UpdateIGAScriptQuestionSortOrderBatchResults
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdatedIGASession(ctx context.Context, arg UpdatedIGASessionParams) (IgaSession, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
