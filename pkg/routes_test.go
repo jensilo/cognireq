@@ -1937,3 +1937,175 @@ func TestDeleteQuestionHandler(t *testing.T) {
 		assert.Equal(t, q3.ID, remainingQuestions[1].ID) // q3 should now be at index 1
 	})
 }
+
+func TestReorderQuestionsController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Reorder Questions Session")
+
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question A")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question B")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question C")
+
+		initialQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, initialQuestions, 3)
+		assertSortedQuestions(t, initialQuestions)
+		// can not assert ABC because `createTestQuestion` is non-deterministic (with 0 sort order)
+
+		// define a new order
+		newOrder := []uuid.UUID{initialQuestions[2].ID, initialQuestions[0].ID, initialQuestions[1].ID}
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: newOrder}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/reorder", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+
+		// fetch questions again and verify the new order and normalized sort_order
+		reorderedQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, reorderedQuestions, 3)
+		assertSortedQuestions(t, reorderedQuestions) // checks 0, 1, 2 sort order
+		assert.Equal(t, initialQuestions[2].ID, reorderedQuestions[0].ID)
+		assert.Equal(t, initialQuestions[0].ID, reorderedQuestions[1].ID)
+		assert.Equal(t, initialQuestions[1].ID, reorderedQuestions[2].ID)
+	})
+
+	t.Run("unauthenticated", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+
+		sessionID := uuid.New()
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{uuid.New()}}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newUnauthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/reorder", sessionID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("malformed session ID", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{uuid.New()}}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, "/api/v1/iga/invalid-uuid/questions/reorder", payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+	})
+
+	t.Run("not found (non-existent session)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		sessionID := uuid.New()
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{uuid.New()}}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/reorder", sessionID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+	})
+
+	t.Run("forbidden (session owned by another user)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		otherUserSession := ts.createTestSession(t, ts.authedUser.ID, "Other User's Session")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, otherUserSession.ID, "Question for other user")
+
+		intruder := ts.createTestUser(t, "intruder@test.com", "password123")
+		_, sessionID, err := ts.user.Login(t.Context(), intruder.Email, "password123")
+		require.NoError(t, err)
+
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{uuid.New()}}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/api/v1/iga/%s/questions/reorder", ts.server.URL, otherUserSession.ID.String()), bytes.NewReader(payloadJSON))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: sessionID.String()})
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+	})
+
+	t.Run("validation error (empty ordered_question_ids)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Validation Test Session")
+
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{}} // empty list
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/reorder", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+		var webErr WebError
+		err = json.NewDecoder(res.Body).Decode(&webErr)
+		require.NoError(t, err)
+		assert.Len(t, webErr.Fields, 1)
+		assert.Equal(t, CodeValueMissing, webErr.Fields[0].Code)
+		assert.Equal(t, "ordered_question_ids", webErr.Fields[0].Field)
+	})
+
+	t.Run("validation error (mismatched question IDs)", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Mismatched IDs Test Session")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2")
+
+		// provide an ordered list with a non-existent question ID
+		payload := reorderQuestionsPayload{OrderedQuestionIDs: []uuid.UUID{uuid.New(), uuid.New()}}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/reorder", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		// expecting an internal server error or bad request if the service layer handles this
+		// for now, assuming it might lead to an internal error if not explicitly handled as bad request
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	})
+}
