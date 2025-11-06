@@ -11,6 +11,7 @@ import {
   fetchIgaSession,
   fetchIgaSessions,
   type IgaChatLog,
+  reorderIgaQuestions,
   retryIgaChatMessage,
   type SendChatPayload,
   sendIgaChatMessage,
@@ -150,6 +151,14 @@ export const useIgaStore = defineStore('iga', () => {
     onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
+  const reorderIgaQuestionsMutation = useMutation({
+    mutation: ({sessionId, orderedQuestionIds}: {
+      sessionId: string;
+      orderedQuestionIds: string[]
+    }) => reorderIgaQuestions(sessionId, orderedQuestionIds),
+    onSuccess: () => igaQuestionsQuery.refetch(),
+  })
+
   return {
     // State
     activeSession: activeIgaSessionQuery.data,
@@ -165,6 +174,7 @@ export const useIgaStore = defineStore('iga', () => {
     createIgaQuestion: createIgaQuestionMutation.mutateAsync,
     updateIgaQuestion: updateIgaQuestionMutation.mutateAsync,
     deleteIgaQuestion: deleteIgaQuestionMutation.mutateAsync,
+    reorderIgaQuestions: reorderIgaQuestionsMutation.mutateAsync,
 
     // Loading states
     isLoadingSessions: igaSessionsQuery.isLoading,
@@ -178,6 +188,7 @@ export const useIgaStore = defineStore('iga', () => {
     isUpdatingQuestion: updateIgaQuestionMutation.isLoading,
     isCreatingQuestion: createIgaQuestionMutation.isLoading,
     isDeletingQuestion: deleteIgaQuestionMutation.isLoading,
+    isReorderingQuestions: reorderIgaQuestionsMutation.isLoading,
     isAnyActiveSessionStateLoading: computed(() => {
       return activeIgaSessionQuery.isLoading.value ||
         igaChatLogsQuery.isLoading.value ||
@@ -188,7 +199,8 @@ export const useIgaStore = defineStore('iga', () => {
         updateIgaSessionMutation.isLoading.value ||
         updateIgaQuestionMutation.isLoading.value ||
         createIgaQuestionMutation.isLoading.value ||
-        deleteIgaQuestionMutation.isLoading.value
+        deleteIgaQuestionMutation.isLoading.value ||
+        reorderIgaQuestionsMutation.isLoading.value
     }),
 
     // Errors
@@ -203,5 +215,6 @@ export const useIgaStore = defineStore('iga', () => {
     errorUpdatingQuestion: updateIgaQuestionMutation.error,
     errorCreatingQuestion: createIgaQuestionMutation.error,
     errorDeletingQuestion: deleteIgaQuestionMutation.error,
+    errorReorderingQuestions: reorderIgaQuestionsMutation.error,
   }
 })

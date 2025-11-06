@@ -17,37 +17,37 @@ var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
 
-const updateIGAScriptQuestionSortOrder = `-- name: UpdateIGAScriptQuestionSortOrder :batchexec
+const reorderIGAScriptQuestions = `-- name: ReorderIGAScriptQuestions :batchexec
 UPDATE iga_script_questions
 SET sort_order = $2
 WHERE id = $1
 `
 
-type UpdateIGAScriptQuestionSortOrderBatchResults struct {
+type ReorderIGAScriptQuestionsBatchResults struct {
 	br     pgx.BatchResults
 	tot    int
 	closed bool
 }
 
-type UpdateIGAScriptQuestionSortOrderParams struct {
+type ReorderIGAScriptQuestionsParams struct {
 	ID        uuid.UUID `json:"id"`
 	SortOrder int16     `json:"sort_order"`
 }
 
-func (q *Queries) UpdateIGAScriptQuestionSortOrder(ctx context.Context, arg []UpdateIGAScriptQuestionSortOrderParams) *UpdateIGAScriptQuestionSortOrderBatchResults {
+func (q *Queries) ReorderIGAScriptQuestions(ctx context.Context, arg []ReorderIGAScriptQuestionsParams) *ReorderIGAScriptQuestionsBatchResults {
 	batch := &pgx.Batch{}
 	for _, a := range arg {
 		vals := []interface{}{
 			a.ID,
 			a.SortOrder,
 		}
-		batch.Queue(updateIGAScriptQuestionSortOrder, vals...)
+		batch.Queue(reorderIGAScriptQuestions, vals...)
 	}
 	br := q.db.SendBatch(ctx, batch)
-	return &UpdateIGAScriptQuestionSortOrderBatchResults{br, len(arg), false}
+	return &ReorderIGAScriptQuestionsBatchResults{br, len(arg), false}
 }
 
-func (b *UpdateIGAScriptQuestionSortOrderBatchResults) Exec(f func(int, error)) {
+func (b *ReorderIGAScriptQuestionsBatchResults) Exec(f func(int, error)) {
 	defer b.br.Close()
 	for t := 0; t < b.tot; t++ {
 		if b.closed {
@@ -63,7 +63,7 @@ func (b *UpdateIGAScriptQuestionSortOrderBatchResults) Exec(f func(int, error)) 
 	}
 }
 
-func (b *UpdateIGAScriptQuestionSortOrderBatchResults) Close() error {
+func (b *ReorderIGAScriptQuestionsBatchResults) Close() error {
 	b.closed = true
 	return b.br.Close()
 }

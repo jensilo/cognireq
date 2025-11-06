@@ -428,17 +428,15 @@ func (is *IGAService) NormalizeQuestionnaireSorting(ctx context.Context, userID,
 		return fmt.Errorf("failed to get questions for session %s: %w", sessionID, err)
 	}
 
-	normalizedQuestions := normalizeQuestionSortOrder(questions)
-
-	sortOrderUpdate := make([]db.UpdateIGAScriptQuestionSortOrderParams, len(normalizedQuestions))
-	for i, q := range normalizedQuestions {
-		sortOrderUpdate[i] = db.UpdateIGAScriptQuestionSortOrderParams{ID: q.ID, SortOrder: q.SortOrder}
+	// extract IDs in their current sorted order
+	orderedQuestionIDs := make([]uuid.UUID, len(questions))
+	for i, q := range questions {
+		orderedQuestionIDs[i] = q.ID
 	}
 
-	batch := is.queries.UpdateIGAScriptQuestionSortOrder(ctx, sortOrderUpdate)
-	batch.Exec(nil)
-	if err := batch.Close(); err != nil {
-		return fmt.Errorf("failed to normalize questionnaire sorting after creating question: %w", err)
+	// use ReorderQuestions to apply the normalized sort order
+	if err := is.ReorderQuestions(ctx, userID, sessionID, orderedQuestionIDs); err != nil {
+		return fmt.Errorf("failed to normalize questionnaire sorting: %w", err)
 	}
 
 	return nil
@@ -480,16 +478,6 @@ func intoIGAScriptQuestions(questions []db.IgaScriptQuestion) ([]types.IGAScript
 	}
 
 	return scriptQuestions, allErrors
-}
-
-func normalizeQuestionSortOrder(questions []types.IGAScriptQuestion) []types.IGAScriptQuestion {
-	normalizedQuestions := make([]types.IGAScriptQuestion, len(questions))
-	for i, q := range questions {
-		q.SortOrder = int16(i)
-		normalizedQuestions[i] = q
-	}
-
-	return normalizedQuestions
 }
 
 func (is *IGAService) generateUniqueReadableID(ctx context.Context, sessionID uuid.UUID) (string, error) {
@@ -652,6 +640,40 @@ func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, que
 
 	if err := is.NormalizeQuestionnaireSorting(ctx, userID, sessionID); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (is *IGAService) ReorderQuestions(ctx context.Context, userID, sessionID uuid.UUID, orderedQuestionIDs []uuid.UUID) error {
+	sessionExists, err := is.queries.IGASessionExistsForUser(ctx, db.IGASessionExistsForUserParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check session existence for reorder: %w", err)
+	}
+	if !sessionExists {
+		return ErrNotFound
+	}
+
+	batchParams := make([]db.ReorderIGAScriptQuestionsParams, len(orderedQuestionIDs))
+	for i, qID := range orderedQuestionIDs {
+		batchParams[i] = db.ReorderIGAScriptQuestionsParams{
+			ID:        qID,
+			SortOrder: int16(i), // assign 0-indexed, contiguous sort order
+		}
+	}
+
+	batch := is.queries.ReorderIGAScriptQuestions(ctx, batchParams)
+	batch.Exec(nil)
+	if err := batch.Close(); err != nil {
+		return fmt.Errorf("failed to reorder questions: %w", err)
+	}
+
+	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	if err != nil {
+		return fmt.Errorf("failed to update session timestamp after reordering questions: %w", err)
 	}
 
 	return nil

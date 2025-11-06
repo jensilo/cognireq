@@ -152,3 +152,10 @@ export async function deleteIgaQuestion(sessionId: string, questionId: string): 
     method: 'DELETE',
   })
 }
+
+export async function reorderIgaQuestions(sessionId: string, orderedQuestionIds: string[]): Promise<EmptyResponse> {
+  return apiFetch<EmptyResponse>(`/iga/${sessionId}/questions/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ordered_question_ids: orderedQuestionIds}),
+  })
+}

@@ -148,7 +148,7 @@ SELECT iga_script_questions.* FROM iga_script_questions
 INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
 WHERE iga_script_questions.id = sqlc.arg('iga_script_question_id') AND iga_sessions.id = sqlc.arg('iga_session_id') AND iga_sessions.user_id = sqlc.arg('user_id');
 
--- name: UpdateIGAScriptQuestionSortOrder :batchexec
+-- name: ReorderIGAScriptQuestions :batchexec
 UPDATE iga_script_questions
 SET sort_order = $2
 WHERE id = $1;

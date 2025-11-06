@@ -110,6 +110,11 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	deleteQuestionAuth := AuthMiddleware(deleteQuestionLogger, services.User)
 	mux.Handle(deleteQuestionPath, deleteQuestionAuth(deleteQuestionHandler(deleteQuestionLogger, services.IGA)))
 
+	reorderQuestionsPath := "PATCH /api/v1/iga/{id}/questions/reorder"
+	reorderQuestionsLogger := logger.With("route", reorderQuestionsPath)
+	reorderQuestionsAuth := AuthMiddleware(reorderQuestionsLogger, services.User)
+	mux.Handle(reorderQuestionsPath, reorderQuestionsAuth(HandleJSON(reorderQuestionsController(reorderQuestionsLogger, services.IGA))))
+
 	return nil
 }
 
@@ -817,4 +822,40 @@ func deleteQuestionHandler(logger *slog.Logger, service *IGAService) http.Handle
 
 		w.WriteHeader(http.StatusNoContent)
 	})
+}
+
+type reorderQuestionsPayload struct {
+	OrderedQuestionIDs []uuid.UUID `json:"ordered_question_ids"`
+}
+
+func (p reorderQuestionsPayload) Validate() *WebError {
+	if len(p.OrderedQuestionIDs) == 0 {
+		return NewValidationError([]FieldError{{Code: CodeValueMissing, Field: "ordered_question_ids"}})
+	}
+
+	return nil
+}
+
+type reorderQuestionsResponse struct{}
+
+func reorderQuestionsController(logger *slog.Logger, service *IGAService) ControllerLogic[reorderQuestionsPayload, *reorderQuestionsResponse] {
+	return func(w http.ResponseWriter, r *http.Request, in reorderQuestionsPayload) (*reorderQuestionsResponse, int, *WebError) {
+		ctx := r.Context()
+		user := MustUserFromCtx(ctx)
+		sessionID, err := uuid.Parse(r.PathValue("id"))
+		if err != nil {
+			return nil, 0, NewMalformedRequestError()
+		}
+
+		err = service.ReorderQuestions(ctx, user.ID, sessionID, in.OrderedQuestionIDs)
+		if errors.Is(err, ErrNotFound) {
+			return nil, 0, NewNotFoundError()
+		}
+		if err != nil {
+			logger.Error("could not reorder questions", "err", err)
+			return nil, 0, NewInternalError()
+		}
+
+		return &reorderQuestionsResponse{}, http.StatusNoContent, nil
+	}
 }
