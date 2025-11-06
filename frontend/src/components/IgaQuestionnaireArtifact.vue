@@ -115,24 +115,21 @@ const moveQuestion = async (questionId: string, direction: 'up' | 'down') => {
   if (targetIndex < 0 || targetIndex >= questions.length) return
 
   const questionToMove = questions[index]
-  const targetQuestion = questions[targetIndex]
 
-  if (!questionToMove || !targetQuestion) return
+  // create a temporary array to simulate the move and determine the new sort_order
+  const reorderedQuestions = [...questions]
+  reorderedQuestions.splice(index, 1) // remove from current position
+  reorderedQuestions.splice(targetIndex, 0, questionToMove) // insert into new position
 
-  // Swap sort_order values
-  const newSortOrderQuestionToMove = targetQuestion.sort_order
-  const newSortOrderTargetQuestion = questionToMove.sort_order
+  // the new sort_order for the moved question is its new index in the reordered list
+  const newSortOrder = reorderedQuestions.findIndex(q => q.id === questionId)
+
+  if (newSortOrder === -1) return // Should not happen
 
   await igaStore.updateIgaQuestion({
     sessionId: props.sessionId,
     questionId: questionToMove.id,
-    payload: {sort_order: newSortOrderQuestionToMove},
-  })
-
-  await igaStore.updateIgaQuestion({
-    sessionId: props.sessionId,
-    questionId: targetQuestion.id,
-    payload: {sort_order: newSortOrderTargetQuestion},
+    payload: {sort_order: newSortOrder},
   })
 }
 
