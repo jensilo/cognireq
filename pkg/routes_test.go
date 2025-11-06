@@ -2104,8 +2104,6 @@ func TestReorderQuestionsController(t *testing.T) {
 		res, err := ts.server.Client().Do(req)
 		require.NoError(t, err)
 		defer func() { assert.NoError(t, res.Body.Close()) }()
-		// expecting an internal server error or bad request if the service layer handles this
-		// for now, assuming it might lead to an internal error if not explicitly handled as bad request
-		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	})
 }

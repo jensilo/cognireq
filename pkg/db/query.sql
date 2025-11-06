@@ -111,6 +111,16 @@ INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
 WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2
 ORDER BY iga_script_questions.sort_order;
 
+-- name: IGAScriptQuestionIDsBySessionID :many
+SELECT iga_script_questions.id FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2;
+
+-- name: IGAScriptQuestionByID :one
+SELECT iga_script_questions.* FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_script_questions.id = sqlc.arg('iga_script_question_id') AND iga_sessions.id = sqlc.arg('iga_session_id') AND iga_sessions.user_id = sqlc.arg('user_id');
+
 -- name: CreateIGAScriptQuestion :one
 INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
 SELECT $2, $3, $4, $5, $6, $7
@@ -142,11 +152,6 @@ DELETE FROM iga_script_questions
 WHERE
     iga_script_questions.id = $3 AND iga_session_id = $2
     AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $1);
-
--- name: IGAScriptQuestionByID :one
-SELECT iga_script_questions.* FROM iga_script_questions
-INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
-WHERE iga_script_questions.id = sqlc.arg('iga_script_question_id') AND iga_sessions.id = sqlc.arg('iga_session_id') AND iga_sessions.user_id = sqlc.arg('user_id');
 
 -- name: ReorderIGAScriptQuestions :batchexec
 UPDATE iga_script_questions

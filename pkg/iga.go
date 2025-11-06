@@ -657,6 +657,29 @@ func (is *IGAService) ReorderQuestions(ctx context.Context, userID, sessionID uu
 		return ErrNotFound
 	}
 
+	existingQuestionIDs, err := is.queries.IGAScriptQuestionIDsBySessionID(ctx, db.IGAScriptQuestionIDsBySessionIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get existing question IDs for session %s: %w", sessionID, err)
+	}
+
+	if len(orderedQuestionIDs) != len(existingQuestionIDs) {
+		return ErrNotFound
+	}
+
+	existingIDMap := make(map[uuid.UUID]struct{}, len(existingQuestionIDs))
+	for _, id := range existingQuestionIDs {
+		existingIDMap[id] = struct{}{}
+	}
+
+	for _, id := range orderedQuestionIDs {
+		if _, found := existingIDMap[id]; !found {
+			return ErrNotFound // an ID in the reorder list does not exist in the session
+		}
+	}
+
 	batchParams := make([]db.ReorderIGAScriptQuestionsParams, len(orderedQuestionIDs))
 	for i, qID := range orderedQuestionIDs {
 		batchParams[i] = db.ReorderIGAScriptQuestionsParams{

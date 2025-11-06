@@ -318,6 +318,37 @@ func (q *Queries) IGAScriptQuestionExistsByReadableID(ctx context.Context, arg I
 	return exists, err
 }
 
+const iGAScriptQuestionIDsBySessionID = `-- name: IGAScriptQuestionIDsBySessionID :many
+SELECT iga_script_questions.id FROM iga_script_questions
+INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
+WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2
+`
+
+type IGAScriptQuestionIDsBySessionIDParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) IGAScriptQuestionIDsBySessionID(ctx context.Context, arg IGAScriptQuestionIDsBySessionIDParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, iGAScriptQuestionIDsBySessionID, arg.UserID, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const iGAScriptQuestionsBySessionID = `-- name: IGAScriptQuestionsBySessionID :many
 
 SELECT iga_script_questions.id, iga_script_questions.iga_session_id, iga_script_questions.readable_id, iga_script_questions.question_text, iga_script_questions.note_text, iga_script_questions.sort_order, iga_script_questions.metadata FROM iga_script_questions
