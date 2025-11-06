@@ -162,6 +162,16 @@ func (ts *testServer) createTestChatLog(t *testing.T, userID, sessionID uuid.UUI
 	return chatLog
 }
 
+func assertSortedQuestions(t *testing.T, questions []types.IGAScriptQuestion) bool {
+
+	for i, q := range questions {
+		if q.SortOrder != int16(i) {
+			return assert.Failf(t, "Sort order mismatch", "Question at index %d has SortOrder %d, expected %d", i, q.SortOrder, i)
+		}
+	}
+	return true
+}
+
 func TestPing(t *testing.T) {
 	t.Parallel()
 	ts := newTestServer(t)
@@ -1325,7 +1335,7 @@ func TestPostQuestionController(t *testing.T) {
 		session := ts.createTestSession(t, ts.authedUser.ID, "Questions Session for Posting")
 		questionText := "What is your favorite color?"
 		noteText := "Optional note for the question."
-		sortOrder := int16(1)
+		sortOrder := int16(0)
 
 		payload := postQuestionPayload{
 			QuestionText: questionText,
@@ -1457,6 +1467,37 @@ func TestPostQuestionController(t *testing.T) {
 		t.Log("Bad Request", res.StatusCode, "err", webErr.Code)
 	})
 
+	t.Run("sort order after multiple creations", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Sort Order Test")
+
+		// create multiple questions
+		for i := 0; i < 5; i++ {
+			questionText := fmt.Sprintf("Question %d", i)
+			payload := postQuestionPayload{
+				QuestionText: questionText,
+				SortOrder:    int16(i + 10), // initial sort order with + 10 offset, will be normalized
+			}
+			payloadJSON, err := json.Marshal(payload)
+			require.NoError(t, err)
+			req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/questions", session.ID.String()), payloadJSON)
+			req.Header.Set("Content-Type", "application/json")
+			res, err := ts.server.Client().Do(req)
+			require.NoError(t, err)
+			defer func() { assert.NoError(t, res.Body.Close()) }()
+			require.Equal(t, http.StatusCreated, res.StatusCode)
+		}
+
+		// fetch all questions and verify their sort order
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 5)
+		assertSortedQuestions(t, questions)
+	})
+
 	t.Run("unauthenticated", func(t *testing.T) {
 		t.Parallel()
 		ts := newTestServer(t)
@@ -1518,14 +1559,15 @@ func TestPatchQuestionController(t *testing.T) {
 		ts.doAuth(t)
 
 		session := ts.createTestSession(t, ts.authedUser.ID, "Patch Question Session 2")
-		question := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question for Notes")
+		q1 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1") // sort_order 0
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2")   // sort_order 1
 
 		newNoteText := "Updated Note Text"
-		newSortOrder := int16(5)
+		newSortOrder := int16(2) // set to two, now swaps places, after normalization becomes 1
 		payload := patchQuestionPayload{NoteText: &newNoteText, SortOrder: &newSortOrder}
 		payloadJSON, err := json.Marshal(payload)
 		require.NoError(t, err)
-		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), question.ID.String()), payloadJSON)
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), q1.ID.String()), payloadJSON)
 		req.Header.Set("Content-Type", "application/json")
 		res, err := ts.server.Client().Do(req)
 		require.NoError(t, err)
@@ -1535,17 +1577,17 @@ func TestPatchQuestionController(t *testing.T) {
 		var patchedQuestion patchQuestionResponse
 		err = json.NewDecoder(res.Body).Decode(&patchedQuestion)
 		require.NoError(t, err)
-		assert.Equal(t, question.ID, patchedQuestion.ID)
+		assert.Equal(t, q1.ID, patchedQuestion.ID)
 		assert.Equal(t, newNoteText, patchedQuestion.NoteText)
-		assert.Equal(t, newSortOrder, patchedQuestion.SortOrder)
+		assert.Equal(t, int16(1), patchedQuestion.SortOrder)
 
 		// verify the change in DB
 		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
 		require.NoError(t, err)
-		require.Len(t, questions, 1)
-		assert.Equal(t, newNoteText, questions[0].NoteText)
-		assert.Equal(t, newSortOrder, questions[0].SortOrder)
-		t.Log("question", questions[0].QuestionText, "sort order", questions[0].SortOrder)
+		require.Len(t, questions, 2)
+		assert.Equal(t, newNoteText, questions[1].NoteText)
+		assert.Equal(t, int16(1), questions[1].SortOrder)
+		t.Log("question", questions[1].QuestionText, "sort order", questions[1].SortOrder)
 	})
 
 	t.Run("malformed session ID", func(t *testing.T) {
@@ -1678,6 +1720,61 @@ func TestPatchQuestionController(t *testing.T) {
 		t.Log("Bad Request", res.StatusCode)
 	})
 
+	t.Run("sort order after patching", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Patch Sort Order Test")
+
+		// create questions with initial sort orders that will be normalized
+		q1 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1") // sort_order 0
+		q2 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2") // sort_order 1
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 3")   // sort_order 2
+
+		// verify initial normalized state
+		initialQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, initialQuestions, 3)
+		assertSortedQuestions(t, initialQuestions)
+
+		// patch q1, changing its text. Sort order should remain normalized.
+		newQuestionText := "Updated Question 1 Text"
+		payload := patchQuestionPayload{QuestionText: &newQuestionText}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), q1.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		// fetch all questions and verify sort order is still normalized
+		questionsAfterPatch, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questionsAfterPatch, 3)
+		assertSortedQuestions(t, questionsAfterPatch)
+
+		// patch q2, explicitly setting a non-sequential sort order. It should be normalized back.
+		outOfOrderSort := int16(100)
+		payload = patchQuestionPayload{SortOrder: &outOfOrderSort}
+		payloadJSON, err = json.Marshal(payload)
+		require.NoError(t, err)
+		req = ts.newAuthenticatedRequest(t, http.MethodPatch, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), q2.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err = ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		// fetch all questions and verify sort order is normalized again
+		questionsAfterSortPatch, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questionsAfterSortPatch, 3)
+		assertSortedQuestions(t, questionsAfterSortPatch)
+	})
+
 	t.Run("unauthenticated", func(t *testing.T) {
 		t.Parallel()
 		ts := newTestServer(t)
@@ -1804,5 +1901,39 @@ func TestDeleteQuestionHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { assert.NoError(t, res.Body.Close()) }()
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	})
+
+	t.Run("sort order after deletion", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Session for Delete Sort Order Test")
+
+		// create multiple questions
+		q1 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1")
+		q2 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2")
+		q3 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 3")
+
+		// verify initial normalized state
+		initialQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, initialQuestions, 3)
+		assertSortedQuestions(t, initialQuestions)
+
+		// delete the middle question (q2)
+		req := ts.newAuthenticatedRequest(t, http.MethodDelete, fmt.Sprintf("/api/v1/iga/%s/questions/%s", session.ID.String(), q2.ID.String()), nil)
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+
+		// fetch remaining questions and verify sort order is normalized
+		remainingQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, remainingQuestions, 2)
+		assertSortedQuestions(t, remainingQuestions)
+		assert.Equal(t, q1.ID, remainingQuestions[0].ID) // q1 should now be at index 0
+		assert.Equal(t, q3.ID, remainingQuestions[1].ID) // q3 should now be at index 1
 	})
 }
