@@ -8,7 +8,7 @@ The AI-Native Requirements Clarity Platform.
 
 ## Backend
 - [ ] Implement LLM functionality
-- [ ] Review rename of `UpdatedIGASession`
+- [X] Review rename of `UpdatedIGASession` => `TouchIGASessionUpdatedAt`
 
 ## Frontend
 - [X] Fix sorting order on questionnaire

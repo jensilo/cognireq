@@ -587,30 +587,20 @@ func (q *Queries) SessionByUserID(ctx context.Context, userID uuid.UUID) (Sessio
 	return i, err
 }
 
-const updateLastLogin = `-- name: UpdateLastLogin :exec
-UPDATE users SET last_login = CURRENT_TIMESTAMP
-WHERE id = $1
-`
-
-func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, updateLastLogin, id)
-	return err
-}
-
-const updatedIGASession = `-- name: UpdatedIGASession :one
+const touchIGASessionUpdatedAt = `-- name: TouchIGASessionUpdatedAt :one
 UPDATE iga_sessions
 SET updated_at = CURRENT_TIMESTAMP
 WHERE id = $2 AND user_id = $1
 RETURNING id, user_id, project_name, context_data, system_metadata, created_at, updated_at
 `
 
-type UpdatedIGASessionParams struct {
+type TouchIGASessionUpdatedAtParams struct {
 	UserID uuid.UUID `json:"user_id"`
 	ID     uuid.UUID `json:"id"`
 }
 
-func (q *Queries) UpdatedIGASession(ctx context.Context, arg UpdatedIGASessionParams) (IgaSession, error) {
-	row := q.db.QueryRow(ctx, updatedIGASession, arg.UserID, arg.ID)
+func (q *Queries) TouchIGASessionUpdatedAt(ctx context.Context, arg TouchIGASessionUpdatedAtParams) (IgaSession, error) {
+	row := q.db.QueryRow(ctx, touchIGASessionUpdatedAt, arg.UserID, arg.ID)
 	var i IgaSession
 	err := row.Scan(
 		&i.ID,
@@ -622,6 +612,16 @@ func (q *Queries) UpdatedIGASession(ctx context.Context, arg UpdatedIGASessionPa
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateLastLogin = `-- name: UpdateLastLogin :exec
+UPDATE users SET last_login = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, updateLastLogin, id)
+	return err
 }
 
 const userByEmail = `-- name: UserByEmail :one

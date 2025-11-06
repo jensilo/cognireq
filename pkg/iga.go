@@ -292,7 +292,7 @@ func (is *IGAService) CreateMessage(
 		return nil, err
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 		return nil, err
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +386,7 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 		return nil, err
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +535,7 @@ func (is *IGAService) CreateQuestion(ctx context.Context, userID uuid.UUID, toCr
 		return nil, err
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: question.IgaSessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: question.IgaSessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +593,7 @@ func (is *IGAService) PatchQuestion(ctx context.Context, userID, sessionID, ques
 		return nil, err
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: question.IgaSessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: question.IgaSessionID, UserID: userID})
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +633,7 @@ func (is *IGAService) DeleteQuestion(ctx context.Context, userID, sessionID, que
 		return ErrNotFound
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return err
 	}
@@ -694,7 +694,7 @@ func (is *IGAService) ReorderQuestions(ctx context.Context, userID, sessionID uu
 		return fmt.Errorf("failed to reorder questions: %w", err)
 	}
 
-	_, err = is.queries.UpdatedIGASession(ctx, db.UpdatedIGASessionParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
 	if err != nil {
 		return fmt.Errorf("failed to update session timestamp after reordering questions: %w", err)
 	}

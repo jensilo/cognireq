@@ -44,8 +44,8 @@ type Querier interface {
 	PatchIGASession(ctx context.Context, arg PatchIGASessionParams) (IgaSession, error)
 	ReorderIGAScriptQuestions(ctx context.Context, arg []ReorderIGAScriptQuestionsParams) *ReorderIGAScriptQuestionsBatchResults
 	SessionByUserID(ctx context.Context, userID uuid.UUID) (Session, error)
+	TouchIGASessionUpdatedAt(ctx context.Context, arg TouchIGASessionUpdatedAtParams) (IgaSession, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
-	UpdatedIGASession(ctx context.Context, arg UpdatedIGASessionParams) (IgaSession, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
 	UserBySessionID(ctx context.Context, id uuid.UUID) (UserBySessionIDRow, error)
 }

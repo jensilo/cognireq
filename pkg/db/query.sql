@@ -69,7 +69,7 @@ SET
 WHERE id = sqlc.arg('id') AND user_id = sqlc.arg('user_id')
 RETURNING *;
 
--- name: UpdatedIGASession :one
+-- name: TouchIGASessionUpdatedAt :one
 UPDATE iga_sessions
 SET updated_at = CURRENT_TIMESTAMP
 WHERE id = $2 AND user_id = $1
