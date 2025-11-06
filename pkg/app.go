@@ -19,12 +19,13 @@ import (
 )
 
 type Services struct {
-	User *UserService
-	IGA  *IGAService
+	User   *UserService
+	IGA    *IGAService
+	Gemini *GeminiAIService
 }
 
-func NewServices(us *UserService, is *IGAService) *Services {
-	return &Services{User: us, IGA: is}
+func NewServices(us *UserService, is *IGAService, gs *GeminiAIService) *Services {
+	return &Services{User: us, IGA: is, Gemini: gs}
 }
 
 func Run(
@@ -46,9 +47,15 @@ func Run(
 	defer dbConn.Close()
 	queries := db.New(dbConn)
 
+	llmService, err := NewGeminiAIService(ctx, getenv)
+	if err != nil {
+		return fmt.Errorf("can not initialize gemini ai service: %w", err)
+	}
+
 	services := NewServices(
 		NewUserService(queries),
 		NewIGAService(queries),
+		llmService,
 	)
 
 	go StartSessionCleanup(ctx, logger, services.User, 90*time.Minute)

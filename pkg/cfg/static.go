@@ -2,7 +2,7 @@ package cfg
 
 import "os"
 
-var (
+const (
 	KeyDatabaseUrl       = "PG_DATABASE_URL"
 	WebHost              = "WEB_HOST"
 	WebPort              = "WEB_PORT"

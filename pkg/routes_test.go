@@ -41,7 +41,7 @@ func newTestServer(t *testing.T) *testServer {
 
 	userService := NewUserService(queries)
 	igaService := NewIGAService(queries)
-	services := NewServices(userService, igaService)
+	services := NewServices(userService, igaService, nil)
 
 	router, err := NewServer(logger, services)
 	require.NoError(t, err)
