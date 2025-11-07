@@ -397,10 +397,15 @@ func (is *IGAService) handleAIResponse(
 	if len(res.QuestionsToUpdate) > 0 {
 		patchParams := make([]db.BatchPatchIGAScriptQuestionsParams, 0, len(res.QuestionsToUpdate))
 		for questionID, toUpdate := range res.QuestionsToUpdate {
-			metadataJSON, err := toUpdate.Metadata.JSON()
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal question metadata for update: %w", err)
+			var metadataJSON []byte
+			var err error
+			if toUpdate.Metadata != nil {
+				metadataJSON, err = toUpdate.Metadata.JSON()
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal question metadata for update: %w", err)
+				}
 			}
+
 			var questionText pgtype.Text
 			if toUpdate.QuestionText != nil {
 				questionText = pgtype.Text{String: *toUpdate.QuestionText, Valid: true}
