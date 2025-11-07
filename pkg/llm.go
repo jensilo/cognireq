@@ -147,7 +147,6 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 				"questions_to_create": map[string]any{
 					"type":        "array",
 					"description": "Questions to create.",
-					"maxItems":    20,
 					"items": map[string]any{
 						"type":        "object",
 						"description": "Questionnaire item.",
@@ -174,7 +173,6 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 				"questions_to_update": map[string]any{
 					"type":        "array",
 					"description": "Questions to update.",
-					"maxItems":    20,
 					"items": map[string]any{
 						"$ref": "#/properties/questions_to_create/items",
 					},
