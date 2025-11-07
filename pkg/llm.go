@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jensilo/cognireq/pkg/cfg"
-	"github.com/jensilo/cognireq/pkg/prompts"
+	"github.com/jensilo/cognireq/pkg/prmpt"
 	"github.com/jensilo/cognireq/pkg/types"
 	"google.golang.org/genai"
 )
@@ -21,11 +21,11 @@ const (
 type GeminiAIService struct {
 	client *genai.Client
 	model  string
-	prompt *prompts.PromptService
+	prompt *prmpt.PromptService
 	logger *slog.Logger
 }
 
-func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc, ps *prompts.PromptService, l *slog.Logger) (*GeminiAIService, error) {
+func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc, ps *prmpt.PromptService, l *slog.Logger) (*GeminiAIService, error) {
 	c, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  envFunc(GeminiAIServiceAPIKey),
 		Backend: genai.BackendGeminiAPI,
@@ -105,7 +105,7 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 		return nil, err
 	}
 
-	prompt.ModelInstruction, err = g.prompt.IgaPrompt(prompts.IgaPromptParams{
+	prompt.ModelInstruction, err = g.prompt.IgaPrompt(prmpt.IgaPromptParams{
 		UserInstruction: prompt.UserInstruction,
 	})
 	if err != nil {
