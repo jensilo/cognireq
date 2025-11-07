@@ -18,6 +18,10 @@ const (
 	GeminiAIDefaultModel  = "GEMINI_AI_DEFAULT_MODEL"
 )
 
+type IGAMessageHandler interface {
+	HandleIGAMessage(context.Context, HandleIGAMessageParams) (*HandleIGAMessageResult, error)
+}
+
 type GeminiAIService struct {
 	client *genai.Client
 	model  string

@@ -300,17 +300,24 @@ func (is *IGAService) CreateMessage(
 	return &converted, nil
 }
 
-func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UUID, messageText string, messageMetaData types.IGAChatLogMetadata) (*types.IGAChatLog, error) {
-	userMetadataJSON, err := messageMetaData.JSON()
+type SendMessageParams struct {
+	UserID, SessionID uuid.UUID
+	MessageText       string
+	MessageMetaData   types.IGAChatLogMetadata
+	MessageHandler    IGAMessageHandler
+}
+
+func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams) (*types.IGAChatLog, error) {
+	userMetadataJSON, err := params.MessageMetaData.JSON()
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
-		UserID:       userID,
-		IgaSessionID: sessionID,
+		UserID:       params.UserID,
+		IgaSessionID: params.SessionID,
 		Role:         string(types.IGAChatLogRoleUser),
-		MessageText:  messageText,
+		MessageText:  params.MessageText,
 		Metadata:     userMetadataJSON,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -320,17 +327,27 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 		return nil, err
 	}
 
-	// TODO: NLP integration to process the message and generate a response.
-	//  - Fetch conversation history.
-	//  - Call NLP service.
-	//  - For now, we'll just create a stubbed response.
-	time.Sleep(2000 * time.Millisecond)
+	res, err := params.MessageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{})
+	if err != nil {
+		return nil, err
+	}
+
+	if res.SessionContextData != nil {
+		_, err := is.PatchSession(ctx, params.UserID, params.SessionID, types.IGASessionToUpdate{ContextData: res.SessionContextData})
+		if err != nil {
+			return nil, fmt.Errorf("error patching session after LLM response: %w", err)
+		}
+	}
+
+	// todo question to delete
+	// todo question to update
+	// todo question to create
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
-		UserID:       userID,
-		IgaSessionID: sessionID,
-		Role:         string(types.IGAChatLogRoleAssistant),
-		MessageText:  "This is a stubbed response.",
+		UserID:       params.UserID,
+		IgaSessionID: params.SessionID,
+		Role:         res.AssistantResponse.Role,
+		MessageText:  res.AssistantResponse.MessageText,
 	})
 	// 2nd should not fail
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -340,7 +357,7 @@ func (is *IGAService) SendMessage(ctx context.Context, userID, sessionID uuid.UU
 		return nil, err
 	}
 
-	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
+	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: params.SessionID, UserID: params.UserID})
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,8 @@ const (
 )
 
 func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) error {
+	igaMessageHandler := services.Gemini
+
 	mux.Handle("GET /api/v1/ping", pingHandler())
 
 	//
@@ -79,7 +81,7 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	sendChatPath := "POST /api/v1/iga/{id}/chat"
 	sendChatLogger := logger.With("route", sendChatPath)
 	sendChatAuth := AuthMiddleware(sendChatLogger, services.User)
-	mux.Handle(sendChatPath, sendChatAuth(HandleJSON(sendChatController(sendChatLogger, services.IGA))))
+	mux.Handle(sendChatPath, sendChatAuth(HandleJSON(sendChatController(sendChatLogger, services.IGA, igaMessageHandler))))
 
 	// retries/regenerates the latest message with potentially varying content (POST /api/v1/iga/{id}/chat/retry)
 	retryChatPath := "POST /api/v1/iga/{id}/chat/retry"
@@ -551,7 +553,7 @@ func (p sendChatPayload) Validate() *WebError {
 
 type sendChatResponse chatMessageResponse
 
-func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogic[sendChatPayload, *sendChatResponse] {
+func sendChatController(logger *slog.Logger, igaService *IGAService, igaMessageHandler IGAMessageHandler) ControllerLogic[sendChatPayload, *sendChatResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in sendChatPayload) (*sendChatResponse, int, *WebError) {
 		ctx := r.Context()
 		user := MustUserFromCtx(ctx)
@@ -560,7 +562,13 @@ func sendChatController(logger *slog.Logger, service *IGAService) ControllerLogi
 			return nil, 0, NewMalformedRequestError()
 		}
 
-		log, err := service.SendMessage(ctx, user.ID, id, in.MessageText, types.IGAChatLogMetadata{Type: in.Instruction})
+		log, err := igaService.SendMessage(ctx, SendMessageParams{
+			UserID:          user.ID,
+			SessionID:       id,
+			MessageText:     in.MessageText,
+			MessageMetaData: types.IGAChatLogMetadata{Type: in.Instruction},
+			MessageHandler:  igaMessageHandler,
+		})
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
 		}
