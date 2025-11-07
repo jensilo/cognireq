@@ -196,6 +196,14 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 		return nil, fmt.Errorf("error marshalling prompt to JSON for Gemini AI request: %w, with prompt: %+v", err, prompt)
 	}
 
+	logger := g.logger.With(
+		"function-trace", "llm.go/intoHandleIGAMessageResult",
+		"params", params,
+		"model", g.model,
+		"prompt", prompt,
+		"config", config,
+	)
+
 	// todo implement sane, logged, capped re-try, using generic function to re-try and re-parse JSON on previous failures
 	result, err := g.client.Models.GenerateContent(
 		ctx,
@@ -220,7 +228,13 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 	}
 	// until here retry border
 
-	return intoHandleIGAMessageResult(params, igaRes), nil
+	logger.Debug("gemini AI responded", "iga-response", igaRes)
+
+	return intoHandleIGAMessageResult(
+		logger,
+		params,
+		igaRes,
+	), nil
 }
 
 func intoIgaPrompt(params HandleIGAMessageParams) (*igaPrompt, error) {
@@ -264,7 +278,7 @@ func intoIgaPrompt(params HandleIGAMessageParams) (*igaPrompt, error) {
 	return prompt, nil
 }
 
-func intoHandleIGAMessageResult(params HandleIGAMessageParams, llm igaResponse) *HandleIGAMessageResult {
+func intoHandleIGAMessageResult(logger *slog.Logger, params HandleIGAMessageParams, llm igaResponse) *HandleIGAMessageResult {
 	result := &HandleIGAMessageResult{}
 
 	result.AssistantResponse = types.IGAChatLogToCreate{
@@ -328,6 +342,7 @@ func intoHandleIGAMessageResult(params HandleIGAMessageParams, llm igaResponse) 
 		for _, qtu := range llm.QuestionsToUpdate {
 			original, ok := originalQuestionsByReadableID[qtu.ReadableID]
 			if !ok {
+				logger.Info("skipping LLM question to update bc not found in original", "question-to-update", qtu)
 				continue // question to update does not exist in original questionnaire
 			}
 
@@ -354,6 +369,7 @@ func intoHandleIGAMessageResult(params HandleIGAMessageParams, llm igaResponse) 
 		for _, qtd := range llm.QuestionsToDeleteByID {
 			original, ok := originalQuestionsByReadableID[qtd]
 			if !ok {
+				logger.Info("skipping LLM question to delete bc not found in original", "question-to-delete", qtd)
 				continue // question to delete does not exist in original questionnaire
 			}
 

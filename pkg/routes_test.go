@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jensilo/cognireq/pkg/db"
+	"github.com/jensilo/cognireq/pkg/prmpt"
 	"github.com/jensilo/cognireq/pkg/types"
 	"github.com/jensilo/cognireq/test"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,7 @@ func newTestServer(t *testing.T) *testServer {
 
 	userService := NewUserService(queries)
 	igaService := NewIGAService(queries)
-	services := NewServices(userService, igaService, nil)
+	services := NewServices(userService, igaService, prmpt.NewPromptService(), nil)
 
 	router, err := NewServer(logger, services)
 	require.NoError(t, err)
