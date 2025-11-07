@@ -230,11 +230,7 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 
 	logger.Debug("gemini AI responded", "iga-response", igaRes)
 
-	return intoHandleIGAMessageResult(
-		logger,
-		params,
-		igaRes,
-	), nil
+	return intoHandleIGAMessageResult(logger, params, igaRes), nil
 }
 
 func intoIgaPrompt(params HandleIGAMessageParams) (*igaPrompt, error) {
