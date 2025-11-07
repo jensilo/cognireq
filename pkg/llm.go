@@ -191,7 +191,7 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 					},
 				},
 			},
-			"required": []string{"assistantResponseText"},
+			"required": []string{"assistant_response_text"},
 		},
 	}
 
