@@ -98,9 +98,6 @@ type igaResponse struct {
 	QuestionsToDeleteByID []string       `json:"questions_to_delete_by_id"`
 }
 
-// todo review with special focus on igaResponse schema translation into Gemini AI JSON schema
-// todo write `iga.go.prmpt`, explaining the AI's role, the input schema, and the task
-// todo implement HandleIGAMessage calling in SendMessage (and RetryMessage)
 // todo evaluate implementing calling HandleIGAMessage with instruction type "all" on session creation
 
 func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
@@ -123,60 +120,60 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 			"properties": map[string]any{
 				"assistant_response_text": map[string]any{
 					"type":        "string",
-					"description": "The Requirements Engineering Expert's response for the chat conversation.",
+					"description": "AI's chat response.",
 				},
 				"context_data": map[string]any{
 					"type":        "object",
-					"description": "The project's context data.",
+					"description": "Project context data.",
 					"properties": map[string]any{
 						"stakeholder_summary": map[string]any{
 							"type":        "string",
-							"description": "Summary of the stakeholder who is interviewed, the INTERVIEWEE.",
+							"description": "Summary of interviewee.",
 						},
 						"project_summary": map[string]any{
 							"type":        "string",
-							"description": "Brief summary of the project that will be discussed and explored in the interview.",
+							"description": "Brief project summary.",
 						},
 						"interview_goal": map[string]any{
 							"type":        "string",
-							"description": "The goal of the requirements elicitation interview.",
+							"description": "Goal of interview.",
 						},
 						"interview_advice": map[string]any{
 							"type":        "string",
-							"description": "General advice for executing the interview, for the INTERVIEWER.",
+							"description": "Advice for interviewer.",
 						},
 					},
 				},
 				"questions_to_create": map[string]any{
 					"type":        "array",
-					"description": "Questions with notes to create for the INTERVIEWER to conduct the interview.",
+					"description": "Questions to create.",
 					"maxItems":    20,
 					"items": map[string]any{
 						"type":        "object",
-						"description": "Questionnaire item containing the question, a note concerning the question, the sort order and the readable ID.",
+						"description": "Questionnaire item.",
 						"properties": map[string]any{
 							"readable_id": map[string]any{
 								"type":        "string",
-								"description": "Readable ID in the format of: Q-[XXX]. Can not be changed! MUST BE MAINTAINED!",
+								"description": "Q-[XXX] ID. MUST BE MAINTAINED!",
 							},
 							"question_text": map[string]any{
 								"type":        "string",
-								"description": "The question's content. Must be a question that the INTERVIEWER asks the INTERVIEWEE.",
+								"description": "Question content.",
 							},
 							"note_text": map[string]any{
 								"type":        "string",
-								"description": "The note's content. Helpful advice for the INTERVIEWER.",
+								"description": "Note content.",
 							},
 							"sort_order": map[string]any{
 								"type":        "integer",
-								"description": "Sort order is 0-index, 1-stepped, contiguous, UI will sort ASCENDING.",
+								"description": "0-indexed, 1-stepped, contiguous sort order.",
 							},
 						},
 					},
 				},
 				"questions_to_update": map[string]any{
 					"type":        "array",
-					"description": "Questions with notes to update for the INTERVIEWER to conduct the interview.",
+					"description": "Questions to update.",
 					"maxItems":    20,
 					"items": map[string]any{
 						"$ref": "#/properties/questions_to_create/items",
@@ -184,10 +181,10 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 				},
 				"questions_to_delete_by_id": map[string]any{
 					"type":        "array",
-					"description": "Questions to delete from the questionnaire by their READABLE ID.",
+					"description": "Questions to delete by readable ID.",
 					"items": map[string]any{
 						"type":        "string",
-						"description": "Readable ID of the question in the format Q-[XXX].",
+						"description": "Readable ID (Q-[XXX]).",
 					},
 				},
 			},
