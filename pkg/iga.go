@@ -308,12 +308,17 @@ type SendMessageParams struct {
 }
 
 func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams) (*types.IGAChatLog, error) {
+	existingLogs, err := is.ChatLogBySessionID(ctx, params.UserID, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
 	userMetadataJSON, err := params.MessageMetaData.JSON()
 	if err != nil {
 		return nil, err
 	}
 
-	dbLastUserMessage, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
+	userChatLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       params.UserID,
 		IgaSessionID: params.SessionID,
 		Role:         string(types.IGAChatLogRoleUser),
@@ -326,7 +331,8 @@ func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams)
 	if err != nil {
 		return nil, err
 	}
-	lastUserMessage, err := intoIGAChatLog(dbLastUserMessage)
+
+	convertedUserChatLog, err := intoIGAChatLog(userChatLog)
 	if err != nil {
 		return nil, err
 	}
@@ -335,31 +341,15 @@ func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams)
 	if err != nil {
 		return nil, err
 	}
-
-	dbLogs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
-		UserID: params.UserID,
-		ID:     params.SessionID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(dbLogs) == 0 {
-		return nil, ErrNotFound
-	}
-	logs, err := intoIGAChatLogs(dbLogs)
-	if err != nil {
-		return nil, err
-	}
-
 	questionnaire, err := is.QuestionsBySessionID(ctx, params.UserID, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	res, err := params.MessageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{
-		UserMessage:   lastUserMessage,
+		UserMessage:   convertedUserChatLog,
 		Session:       *session,
-		Chat:          logs,
+		Chat:          existingLogs,
 		Questionnaire: questionnaire,
 	})
 	if err != nil {
@@ -411,13 +401,28 @@ func (is *IGAService) handleAIResponse(
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal question metadata for update: %w", err)
 			}
+			var questionText pgtype.Text
+			if toUpdate.QuestionText != nil {
+				questionText = pgtype.Text{String: *toUpdate.QuestionText, Valid: true}
+			}
+
+			var noteText pgtype.Text
+			if toUpdate.NoteText != nil {
+				noteText = pgtype.Text{String: *toUpdate.NoteText, Valid: true}
+			}
+
+			var sortOrder pgtype.Int2
+			if toUpdate.SortOrder != nil {
+				sortOrder = pgtype.Int2{Int16: *toUpdate.SortOrder, Valid: true}
+			}
+
 			patchParams = append(patchParams, db.BatchPatchIGAScriptQuestionsParams{
 				ID:           questionID,
 				IgaSessionID: sessionID,
 				UserID:       userID,
-				QuestionText: pgtype.Text{String: *toUpdate.QuestionText, Valid: toUpdate.QuestionText != nil},
-				NoteText:     pgtype.Text{String: *toUpdate.NoteText, Valid: toUpdate.NoteText != nil},
-				SortOrder:    pgtype.Int2{Int16: *toUpdate.SortOrder, Valid: toUpdate.SortOrder != nil},
+				QuestionText: questionText,
+				NoteText:     noteText,
+				SortOrder:    sortOrder,
 				Metadata:     metadataJSON,
 			})
 		}
@@ -497,7 +502,7 @@ func (is *IGAService) handleAIResponse(
 }
 
 func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.UUID, messageHandler IGAMessageHandler) (*types.IGAChatLog, error) {
-	dbLogs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
+	logs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
 		UserID: userID,
 		ID:     sessionID,
 	})
@@ -505,21 +510,32 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 		return nil, err
 	}
 
-	if len(dbLogs) == 0 {
+	if len(logs) == 0 {
 		return nil, ErrNotFound
 	}
 
+	// find the last user message and separate it from the rest of the history
+	// iterate backwards to find the last user message
 	var dbLastUserMessage db.IgaChatLog
-	for i := len(dbLogs) - 1; i >= 0; i-- {
-		if dbLogs[i].Role == string(types.IGAChatLogRoleUser) {
-			dbLastUserMessage = dbLogs[i]
-			break
+	var dbChatHistory []db.IgaChatLog
+	foundLastUserMessage := false
+	for i := len(logs) - 1; i >= 0; i-- {
+		if logs[i].Role == string(types.IGAChatLogRoleUser) && !foundLastUserMessage {
+			dbLastUserMessage = logs[i]
+			foundLastUserMessage = true
+		} else {
+			// Add all other messages to chatHistory, prepending to maintain chronological order
+			dbChatHistory = append([]db.IgaChatLog{logs[i]}, dbChatHistory...)
 		}
 	}
 	if dbLastUserMessage.ID == uuid.Nil {
 		return nil, fmt.Errorf("no user message found to retry in session %s", sessionID)
 	}
 	lastUserMessage, err := intoIGAChatLog(dbLastUserMessage)
+	if err != nil {
+		return nil, err
+	}
+	chatHistory, err := intoIGAChatLogs(dbChatHistory)
 	if err != nil {
 		return nil, err
 	}
@@ -533,15 +549,10 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 		return nil, err
 	}
 
-	logs, err := intoIGAChatLogs(dbLogs)
-	if err != nil {
-		return nil, err
-	}
-
 	res, err := messageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{
 		UserMessage:   lastUserMessage,
 		Session:       *session,
-		Chat:          logs,
+		Chat:          chatHistory,
 		Questionnaire: questionnaire,
 	})
 	if err != nil {

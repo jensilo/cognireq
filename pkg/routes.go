@@ -87,7 +87,7 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, services *Services) erro
 	retryChatPath := "POST /api/v1/iga/{id}/chat/retry"
 	retryChatLogger := logger.With("route", retryChatPath)
 	retryChatAuth := AuthMiddleware(retryChatLogger, services.User)
-	mux.Handle(retryChatPath, retryChatAuth(HandleJSON(retryChatController(retryChatLogger, services.IGA))))
+	mux.Handle(retryChatPath, retryChatAuth(HandleJSON(retryChatController(retryChatLogger, services.IGA, igaMessageHandler))))
 
 	//
 	// --- IGA Questionnaire Routes ---
@@ -599,7 +599,7 @@ func (p retryChatPayload) Validate() *WebError {
 
 type retryChatResponse chatMessageResponse
 
-func retryChatController(logger *slog.Logger, service *IGAService) ControllerLogic[retryChatPayload, *retryChatResponse] {
+func retryChatController(logger *slog.Logger, service *IGAService, igaMessageHandler IGAMessageHandler) ControllerLogic[retryChatPayload, *retryChatResponse] {
 	return func(w http.ResponseWriter, r *http.Request, in retryChatPayload) (*retryChatResponse, int, *WebError) {
 		ctx := r.Context()
 		user := MustUserFromCtx(ctx)
@@ -608,7 +608,7 @@ func retryChatController(logger *slog.Logger, service *IGAService) ControllerLog
 			return nil, 0, NewMalformedRequestError()
 		}
 
-		log, err := service.RetryMessage(ctx, user.ID, id)
+		log, err := service.RetryMessage(ctx, user.ID, id, igaMessageHandler)
 		if errors.Is(err, ErrNotFound) {
 			return nil, 0, NewNotFoundError()
 		}
