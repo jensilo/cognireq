@@ -146,13 +146,15 @@ const (
 	IGAChatLogInstructionMessage        IGAChatLogInstructionType = "message"
 	IGAChatLogInstructionRefineQuestion IGAChatLogInstructionType = "refine-question"
 	IGAChatLogInstructionRefineContext  IGAChatLogInstructionType = "refine-context"
+	IGAChatLogInstructionAll            IGAChatLogInstructionType = "all"
 )
 
 func IntoIGAChatLogInstructionType(value string) (IGAChatLogInstructionType, error) {
 	switch value {
 	case string(IGAChatLogInstructionMessage),
 		string(IGAChatLogInstructionRefineQuestion),
-		string(IGAChatLogInstructionRefineContext):
+		string(IGAChatLogInstructionRefineContext),
+		string(IGAChatLogInstructionAll):
 		return IGAChatLogInstructionType(value), nil
 	default:
 		return "", errors.New("invalid chat instruction type")

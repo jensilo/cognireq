@@ -2,9 +2,13 @@ package pkg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/jensilo/cognireq/pkg/cfg"
+	"github.com/jensilo/cognireq/pkg/prompts"
 	"github.com/jensilo/cognireq/pkg/types"
 	"google.golang.org/genai"
 )
@@ -17,9 +21,11 @@ const (
 type GeminiAIService struct {
 	client *genai.Client
 	model  string
+	prompt *prompts.PromptService
+	logger *slog.Logger
 }
 
-func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc) (*GeminiAIService, error) {
+func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc, ps *prompts.PromptService, l *slog.Logger) (*GeminiAIService, error) {
 	c, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  envFunc(GeminiAIServiceAPIKey),
 		Backend: genai.BackendGeminiAPI,
@@ -33,20 +39,22 @@ func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc) (*GeminiAIS
 		return nil, fmt.Errorf("no gemini ai default model given, consider using gemini-2.5-flash")
 	}
 
-	return &GeminiAIService{client: c, model: m}, nil
+	return &GeminiAIService{client: c, model: m, prompt: ps, logger: l}, nil
 }
 
 type HandleIGAMessageParams struct {
-	userMessage   types.IGAChatLog
-	session       types.IGASession
-	chat          []types.IGAChatLog
-	questionnaire []types.IGAScriptQuestion
+	UserMessage   types.IGAChatLog
+	Session       types.IGASession
+	Chat          []types.IGAChatLog
+	Questionnaire []types.IGAScriptQuestion
 }
 
 type HandleIGAMessageResult struct {
-	assistantResponse types.IGAChatLog
-	session           types.IGASession
-	questionnaire     []types.IGAScriptQuestion
+	AssistantResponse  types.IGAChatLogToCreate
+	SessionContextData *types.IGASessionContextData
+	QuestionsToUpdate  map[uuid.UUID]types.IGAScriptQuestionToUpdate
+	QuestionsToCreate  []types.IGAScriptQuestionToCreate
+	QuestionsToDelete  []uuid.UUID
 }
 
 type igaContextData struct {
@@ -56,7 +64,7 @@ type igaContextData struct {
 	InterviewAdvice    string `json:"interview_advice"`
 }
 
-type igaChatHistory struct {
+type igaChat struct {
 	Role        string `json:"role"`
 	MessageText string `json:"message_text"`
 	Instruction string `json:"instruction"`
@@ -74,18 +82,37 @@ type igaPrompt struct {
 	UserMessageText  string         `json:"user_message_text"`
 	UserInstruction  string         `json:"user_instruction"`
 	ContextData      igaContextData `json:"context_data"`
-	ChatHistory      igaChatHistory `json:"chat_history"`
+	ChatHistory      []igaChat      `json:"chat_history"`
 	Questionnaire    []igaQuestion  `json:"questionnaire"`
 }
 
 type igaResponse struct {
 	AssistantResponseText string         `json:"assistant_response_text"`
 	ContextData           igaContextData `json:"context_data"`
-	Questionnaire         []igaQuestion  `json:"questionnaire"`
+	QuestionsToCreate     []igaQuestion  `json:"questions_to_create"`
+	QuestionsToUpdate     []igaQuestion  `json:"questions_to_update"`
+	QuestionsToDeleteByID []string       `json:"questions_to_delete_by_id"`
 }
 
-func (*GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) {
-	config := genai.GenerateContentConfig{
+// todo review with special focus on igaResponse schema translation into Gemini AI JSON schema
+// todo write `iga.go.prmpt`, explaining the AI's role, the input schema, and the task
+// todo implement HandleIGAMessage calling in SendMessage (and RetryMessage)
+// todo evaluate implementing calling HandleIGAMessage with instruction type "all" on session creation
+
+func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
+	prompt, err := intoIgaPrompt(params)
+	if err != nil {
+		return nil, err
+	}
+
+	prompt.ModelInstruction, err = g.prompt.IgaPrompt(prompts.IgaPromptParams{
+		UserInstruction: prompt.UserInstruction,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error constructing Gemini AI prompt: %w", err)
+	}
+
+	config := &genai.GenerateContentConfig{
 		ResponseMIMEType: "application/json",
 		ResponseJsonSchema: map[string]any{
 			"type": "object",
@@ -116,9 +143,9 @@ func (*GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMe
 						},
 					},
 				},
-				"questionnaire": map[string]any{
+				"questions_to_create": map[string]any{
 					"type":        "array",
-					"description": "Questionnaire with questions and notes for the INTERVIEWER to conduct the interview.",
+					"description": "Questions with notes to create for the INTERVIEWER to conduct the interview.",
 					"maxItems":    20,
 					"items": map[string]any{
 						"type":        "object",
@@ -143,10 +170,196 @@ func (*GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMe
 						},
 					},
 				},
+				"questions_to_update": map[string]any{
+					"type":        "array",
+					"description": "Questions with notes to update for the INTERVIEWER to conduct the interview.",
+					"maxItems":    20,
+					"items": map[string]any{
+						"$ref": "#/properties/questions_to_create/items",
+					},
+				},
+				"questions_to_delete_by_id": map[string]any{
+					"type":        "array",
+					"description": "Questions to delete from the questionnaire by their READABLE ID.",
+					"items": map[string]any{
+						"type":        "string",
+						"description": "Readable ID of the question in the format Q-[XXX].",
+					},
+				},
 			},
 			"required": []string{"assistantResponseText"},
 		},
 	}
 
-	fmt.Println(config)
+	promptJSON, err := json.Marshal(prompt)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling prompt to JSON for Gemini AI request: %w, with prompt: %+v", err, prompt)
+	}
+
+	// todo implement sane, logged, capped re-try, using generic function to re-try and re-parse JSON on previous failures
+	result, err := g.client.Models.GenerateContent(
+		ctx,
+		g.model,
+		genai.Text(string(promptJSON)),
+		config,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error generating content using Gemini AI: %w\nModel: %s\nPrompt JSON: %s\nConfig: %+v", err, g.model, promptJSON, config)
+	}
+
+	var igaRes igaResponse
+	err = json.Unmarshal([]byte(result.Text()), &igaRes)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling Gemini AI response text to struct: %w\nResult: %s\nModel: %s\nPrompt JSON: %s\nConfig: %+v",
+			err, result.Text(), g.model, promptJSON, config)
+	}
+
+	if igaRes.AssistantResponseText == "" {
+		return nil, fmt.Errorf("empty assistant response message from Gemini AI response not expected: %+v\nModel: %s\nPrompt JSON: %s\nConfig: %+v",
+			igaRes, g.model, promptJSON, config)
+	}
+	// until here retry border
+
+	return intoHandleIGAMessageResult(params, igaRes), nil
+}
+
+func intoIgaPrompt(params HandleIGAMessageParams) (*igaPrompt, error) {
+	prompt := &igaPrompt{}
+
+	prompt.ModelInstruction = "" // will be set later
+
+	prompt.UserMessageText = params.UserMessage.MessageText
+
+	prompt.UserInstruction = string(params.UserMessage.Metadata.Type)
+	if _, err := types.IntoIGAChatLogInstructionType(prompt.UserInstruction); err != nil {
+		return nil, fmt.Errorf("invalid user instruction type for Gemini AI prompt: %w", err)
+	}
+
+	prompt.ContextData = igaContextData{
+		StakeholderSummary: params.Session.ContextData.StakeholderSummary,
+		ProjectSummary:     params.Session.ContextData.ProjectSummary,
+		InterviewGoal:      params.Session.ContextData.InterviewGoal,
+		InterviewAdvice:    params.Session.ContextData.InterviewAdvice,
+	}
+
+	prompt.ChatHistory = make([]igaChat, len(params.Chat))
+	for i, log := range params.Chat {
+		prompt.ChatHistory[i] = igaChat{
+			Role:        string(log.Role),
+			MessageText: log.MessageText,
+			Instruction: string(log.Metadata.Type),
+		}
+	}
+
+	prompt.Questionnaire = make([]igaQuestion, len(params.Questionnaire))
+	for i, qstn := range params.Questionnaire {
+		prompt.Questionnaire[i] = igaQuestion{
+			ReadableID:   qstn.ReadableID,
+			QuestionText: qstn.QuestionText,
+			NoteText:     qstn.NoteText,
+			SortOrder:    qstn.SortOrder,
+		}
+	}
+
+	return prompt, nil
+}
+
+func intoHandleIGAMessageResult(params HandleIGAMessageParams, llm igaResponse) *HandleIGAMessageResult {
+	result := &HandleIGAMessageResult{}
+
+	result.AssistantResponse = types.IGAChatLogToCreate{
+		IGASessionID: params.Session.ID,
+		Role:         string(types.IGAChatLogRoleAssistant),
+		MessageText:  llm.AssistantResponseText,
+	}
+
+	refineContext := params.UserMessage.Metadata.Type == types.IGAChatLogInstructionRefineContext
+	refineAll := params.UserMessage.Metadata.Type == types.IGAChatLogInstructionAll
+	if refineContext || refineAll {
+		fallbackContextData := params.Session.ContextData
+
+		stakeholderSummary := fallbackContextData.StakeholderSummary
+		if llm.ContextData.StakeholderSummary != "" {
+			stakeholderSummary = llm.ContextData.StakeholderSummary
+		}
+
+		projectSummary := fallbackContextData.ProjectSummary
+		if llm.ContextData.ProjectSummary != "" {
+			projectSummary = llm.ContextData.ProjectSummary
+		}
+
+		interviewGoal := fallbackContextData.InterviewGoal
+		if llm.ContextData.InterviewGoal != "" {
+			interviewGoal = llm.ContextData.InterviewGoal
+		}
+
+		interviewAdvice := fallbackContextData.InterviewAdvice
+		if llm.ContextData.InterviewAdvice != "" {
+			interviewAdvice = llm.ContextData.InterviewAdvice
+		}
+
+		result.SessionContextData = &types.IGASessionContextData{
+			StakeholderSummary: stakeholderSummary,
+			ProjectSummary:     projectSummary,
+			InterviewGoal:      interviewGoal,
+			InterviewAdvice:    interviewAdvice,
+		}
+	}
+
+	if len(llm.QuestionsToCreate) > 0 {
+		result.QuestionsToCreate = make([]types.IGAScriptQuestionToCreate, len(llm.QuestionsToCreate))
+		for i, qtc := range llm.QuestionsToCreate {
+			result.QuestionsToCreate[i] = types.IGAScriptQuestionToCreate{
+				IGASessionID: params.Session.ID,
+				QuestionText: qtc.QuestionText,
+				NoteText:     qtc.NoteText,
+				SortOrder:    qtc.SortOrder,
+			}
+		}
+	}
+
+	originalQuestionsByReadableID := make(map[string]types.IGAScriptQuestion, len(params.Questionnaire))
+	for _, q := range params.Questionnaire {
+		originalQuestionsByReadableID[q.ReadableID] = q
+	}
+
+	if len(llm.QuestionsToUpdate) > 0 {
+		result.QuestionsToUpdate = make(map[uuid.UUID]types.IGAScriptQuestionToUpdate, len(llm.QuestionsToUpdate))
+		for _, qtu := range llm.QuestionsToUpdate {
+			original, ok := originalQuestionsByReadableID[qtu.ReadableID]
+			if !ok {
+				continue // question to update does not exist in original questionnaire
+			}
+
+			toUpdate := types.IGAScriptQuestionToUpdate{}
+
+			if qtu.QuestionText != original.QuestionText {
+				toUpdate.QuestionText = &qtu.QuestionText
+			}
+
+			if qtu.NoteText != original.NoteText {
+				toUpdate.NoteText = &qtu.NoteText
+			}
+
+			if qtu.SortOrder != original.SortOrder {
+				toUpdate.SortOrder = &qtu.SortOrder
+			}
+
+			result.QuestionsToUpdate[original.ID] = toUpdate
+		}
+	}
+
+	if len(llm.QuestionsToDeleteByID) > 0 {
+		result.QuestionsToDelete = make([]uuid.UUID, 0, len(llm.QuestionsToDeleteByID))
+		for _, qtd := range llm.QuestionsToDeleteByID {
+			original, ok := originalQuestionsByReadableID[qtd]
+			if !ok {
+				continue // question to delete does not exist in original questionnaire
+			}
+
+			result.QuestionsToDelete = append(result.QuestionsToDelete, original.ID)
+		}
+	}
+
+	return result
 }

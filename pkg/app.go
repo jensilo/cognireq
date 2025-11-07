@@ -16,16 +16,18 @@ import (
 
 	"github.com/jensilo/cognireq/pkg/cfg"
 	"github.com/jensilo/cognireq/pkg/db"
+	"github.com/jensilo/cognireq/pkg/prompts"
 )
 
 type Services struct {
 	User   *UserService
 	IGA    *IGAService
+	Prompt *prompts.PromptService
 	Gemini *GeminiAIService
 }
 
-func NewServices(us *UserService, is *IGAService, gs *GeminiAIService) *Services {
-	return &Services{User: us, IGA: is, Gemini: gs}
+func NewServices(us *UserService, is *IGAService, ps *prompts.PromptService, gs *GeminiAIService) *Services {
+	return &Services{User: us, IGA: is, Gemini: gs, Prompt: ps}
 }
 
 func Run(
@@ -47,7 +49,8 @@ func Run(
 	defer dbConn.Close()
 	queries := db.New(dbConn)
 
-	llmService, err := NewGeminiAIService(ctx, getenv)
+	prmpts := prompts.NewPromptService()
+	llmService, err := NewGeminiAIService(ctx, getenv, prmpts, logger)
 	if err != nil {
 		return fmt.Errorf("can not initialize gemini ai service: %w", err)
 	}
@@ -55,6 +58,7 @@ func Run(
 	services := NewServices(
 		NewUserService(queries),
 		NewIGAService(queries),
+		prmpts,
 		llmService,
 	)
 
