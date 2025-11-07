@@ -108,6 +108,10 @@ export const useIgaStore = defineStore('iga', () => {
         igaChatLogsQuery.refetch()
       }
     },
+    onSuccess: () => {
+      activeIgaSessionQuery.refetch()
+      igaQuestionsQuery.refetch()
+    }
   })
 
   const retryIgaChatMessageMutation = useMutation({
