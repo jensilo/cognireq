@@ -350,7 +350,6 @@ func (q *Queries) IGAScriptQuestionIDsBySessionID(ctx context.Context, arg IGASc
 }
 
 const iGAScriptQuestionsBySessionID = `-- name: IGAScriptQuestionsBySessionID :many
-
 SELECT iga_script_questions.id, iga_script_questions.iga_session_id, iga_script_questions.readable_id, iga_script_questions.question_text, iga_script_questions.note_text, iga_script_questions.sort_order, iga_script_questions.metadata FROM iga_script_questions
 INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
 WHERE iga_sessions.user_id = $1 AND iga_sessions.id = $2
@@ -362,9 +361,6 @@ type IGAScriptQuestionsBySessionIDParams struct {
 	ID     uuid.UUID `json:"id"`
 }
 
-// -
-// - IGA Questions Management ---
-// -
 func (q *Queries) IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error) {
 	rows, err := q.db.Query(ctx, iGAScriptQuestionsBySessionID, arg.UserID, arg.ID)
 	if err != nil {

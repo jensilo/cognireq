@@ -313,7 +313,7 @@ func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams)
 		return nil, err
 	}
 
-	_, err = is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
+	dbLastUserMessage, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       params.UserID,
 		IgaSessionID: params.SessionID,
 		Role:         string(types.IGAChatLogRoleUser),
@@ -326,81 +326,161 @@ func (is *IGAService) SendMessage(ctx context.Context, params SendMessageParams)
 	if err != nil {
 		return nil, err
 	}
-
-	res, err := params.MessageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{})
+	lastUserMessage, err := intoIGAChatLog(dbLastUserMessage)
 	if err != nil {
 		return nil, err
 	}
 
+	session, err := is.SessionByID(ctx, params.UserID, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	dbLogs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
+		UserID: params.UserID,
+		ID:     params.SessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(dbLogs) == 0 {
+		return nil, ErrNotFound
+	}
+	logs, err := intoIGAChatLogs(dbLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	questionnaire, err := is.QuestionsBySessionID(ctx, params.UserID, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := params.MessageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{
+		UserMessage:   lastUserMessage,
+		Session:       *session,
+		Chat:          logs,
+		Questionnaire: questionnaire,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return is.handleAIResponse(ctx, params.UserID, params.SessionID, res)
+}
+
+// handleAIResponse processes the AI's response, updating the session context,
+// questionnaire, and creating the assistant's chat log.
+func (is *IGAService) handleAIResponse(
+	ctx context.Context,
+	userID, sessionID uuid.UUID,
+	res *HandleIGAMessageResult,
+) (*types.IGAChatLog, error) {
 	if res.SessionContextData != nil {
-		_, err := is.PatchSession(ctx, params.UserID, params.SessionID, types.IGASessionToUpdate{ContextData: res.SessionContextData})
+		_, err := is.PatchSession(ctx, userID, sessionID, types.IGASessionToUpdate{ContextData: res.SessionContextData})
 		if err != nil {
-			return nil, fmt.Errorf("error patching session after LLM response: %w", err)
+			return nil, fmt.Errorf("error patching session context data after LLM response: %w", err)
 		}
 	}
 
-	// todo question to delete
-	// todo question to update
-	// todo question to create
-
-	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
-		UserID:       params.UserID,
-		IgaSessionID: params.SessionID,
-		Role:         res.AssistantResponse.Role,
-		MessageText:  res.AssistantResponse.MessageText,
-	})
-	// 2nd should not fail
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: params.SessionID, UserID: params.UserID})
-	if err != nil {
-		return nil, err
+	if len(res.QuestionsToDelete) > 0 {
+		deleteParams := make([]db.BatchDeleteIGAScriptQuestionsParams, len(res.QuestionsToDelete))
+		for i, questionID := range res.QuestionsToDelete {
+			deleteParams[i] = db.BatchDeleteIGAScriptQuestionsParams{
+				ID:           questionID,
+				IgaSessionID: sessionID,
+				UserID:       userID,
+			}
+		}
+		batch := is.queries.BatchDeleteIGAScriptQuestions(ctx, deleteParams)
+		var batchErr error
+		batch.Exec(func(i int, err error) {
+			if err != nil {
+				batchErr = errors.Join(batchErr, fmt.Errorf("failed to delete question %s: %w", deleteParams[i].ID, err))
+			}
+		})
+		if batchErr != nil {
+			return nil, batchErr
+		}
 	}
 
-	converted, err := intoIGAChatLog(assistantLog)
-	if err != nil {
-		return nil, err
+	if len(res.QuestionsToUpdate) > 0 {
+		patchParams := make([]db.BatchPatchIGAScriptQuestionsParams, 0, len(res.QuestionsToUpdate))
+		for questionID, toUpdate := range res.QuestionsToUpdate {
+			metadataJSON, err := toUpdate.Metadata.JSON()
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal question metadata for update: %w", err)
+			}
+			patchParams = append(patchParams, db.BatchPatchIGAScriptQuestionsParams{
+				ID:           questionID,
+				IgaSessionID: sessionID,
+				UserID:       userID,
+				QuestionText: pgtype.Text{String: *toUpdate.QuestionText, Valid: toUpdate.QuestionText != nil},
+				NoteText:     pgtype.Text{String: *toUpdate.NoteText, Valid: toUpdate.NoteText != nil},
+				SortOrder:    pgtype.Int2{Int16: *toUpdate.SortOrder, Valid: toUpdate.SortOrder != nil},
+				Metadata:     metadataJSON,
+			})
+		}
+		batch := is.queries.BatchPatchIGAScriptQuestions(ctx, patchParams)
+		var batchErr error
+		batch.Exec(func(i int, err error) {
+			if err != nil {
+				batchErr = errors.Join(batchErr, fmt.Errorf("failed to update question %s: %w", patchParams[i].ID, err))
+			}
+		})
+		if batchErr != nil {
+			return nil, batchErr
+		}
 	}
 
-	return &converted, nil
-}
-
-func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.UUID) (*types.IGAChatLog, error) {
-	logs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
-		UserID: userID,
-		ID:     sessionID,
-	})
-	if err != nil {
-		return nil, err
+	if len(res.QuestionsToCreate) > 0 {
+		createParams := make([]db.BatchCreateIGAScriptQuestionsParams, len(res.QuestionsToCreate))
+		for i, toCreate := range res.QuestionsToCreate {
+			readableID, err := is.generateUniqueReadableID(ctx, sessionID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate unique readable ID for new question: %w", err)
+			}
+			metadataJSON, err := toCreate.Metadata.JSON()
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal question metadata for create: %w", err)
+			}
+			createParams[i] = db.BatchCreateIGAScriptQuestionsParams{
+				IgaSessionID: sessionID,
+				ReadableID:   readableID,
+				QuestionText: toCreate.QuestionText,
+				NoteText:     pgtype.Text{String: toCreate.NoteText, Valid: toCreate.NoteText != ""},
+				SortOrder:    toCreate.SortOrder,
+				Metadata:     metadataJSON,
+				UserID:       userID,
+			}
+		}
+		batch := is.queries.BatchCreateIGAScriptQuestions(ctx, createParams)
+		var batchErr error
+		batch.Exec(func(i int, err error) {
+			if err != nil {
+				batchErr = errors.Join(batchErr, fmt.Errorf("failed to create question %s: %w", createParams[i].ReadableID, err))
+			}
+		})
+		if batchErr != nil {
+			return nil, batchErr
+		}
 	}
-
-	if len(logs) == 0 { // either no messages found, lacking permission, or session not found
-		return nil, ErrNotFound
-	}
-
-	// TODO: NLP integration to regenerate the last response.
-	//  potentially delete previous "assistant" response, however if there is no "assistant" message the previous might
-	//  have been interrupted prematurely.
-	//  - The history to send to the model would be `logs[1:]` or `logs` (excluding the last assistant message if available).
-	//  - For now, we'll just create a new stubbed response.
-	time.Sleep(100 * time.Millisecond)
 
 	assistantLog, err := is.queries.CreateIGAChatLog(ctx, db.CreateIGAChatLogParams{
 		UserID:       userID,
 		IgaSessionID: sessionID,
-		Role:         string(types.IGAChatLogRoleAssistant),
-		MessageText:  "This is a stubbed *retry* response.",
+		Role:         res.AssistantResponse.Role,
+		MessageText:  res.AssistantResponse.MessageText,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if err := is.NormalizeQuestionnaireSorting(ctx, userID, sessionID); err != nil {
+		return nil, fmt.Errorf("failed to normalize questionnaire sorting after AI response: %w", err)
 	}
 
 	_, err = is.queries.TouchIGASessionUpdatedAt(ctx, db.TouchIGASessionUpdatedAtParams{ID: sessionID, UserID: userID})
@@ -414,6 +494,61 @@ func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.U
 	}
 
 	return &converted, nil
+}
+
+func (is *IGAService) RetryMessage(ctx context.Context, userID, sessionID uuid.UUID, messageHandler IGAMessageHandler) (*types.IGAChatLog, error) {
+	dbLogs, err := is.queries.IGAChatLogsBySessionID(ctx, db.IGAChatLogsBySessionIDParams{
+		UserID: userID,
+		ID:     sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(dbLogs) == 0 {
+		return nil, ErrNotFound
+	}
+
+	var dbLastUserMessage db.IgaChatLog
+	for i := len(dbLogs) - 1; i >= 0; i-- {
+		if dbLogs[i].Role == string(types.IGAChatLogRoleUser) {
+			dbLastUserMessage = dbLogs[i]
+			break
+		}
+	}
+	if dbLastUserMessage.ID == uuid.Nil {
+		return nil, fmt.Errorf("no user message found to retry in session %s", sessionID)
+	}
+	lastUserMessage, err := intoIGAChatLog(dbLastUserMessage)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := is.SessionByID(ctx, userID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	questionnaire, err := is.QuestionsBySessionID(ctx, userID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := intoIGAChatLogs(dbLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := messageHandler.HandleIGAMessage(ctx, HandleIGAMessageParams{
+		UserMessage:   lastUserMessage,
+		Session:       *session,
+		Chat:          logs,
+		Questionnaire: questionnaire,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return is.handleAIResponse(ctx, userID, sessionID, res)
 }
 
 func (is *IGAService) QuestionsBySessionID(ctx context.Context, userID, sessionID uuid.UUID) ([]types.IGAScriptQuestion, error) {

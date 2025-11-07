@@ -12,6 +12,12 @@ import (
 
 type Querier interface {
 	ActivateUserByID(ctx context.Context, id uuid.UUID) (int64, error)
+	BatchCreateIGAScriptQuestions(ctx context.Context, arg []BatchCreateIGAScriptQuestionsParams) *BatchCreateIGAScriptQuestionsBatchResults
+	//-
+	//- IGA Questions Management ---
+	//-
+	BatchDeleteIGAScriptQuestions(ctx context.Context, arg []BatchDeleteIGAScriptQuestionsParams) *BatchDeleteIGAScriptQuestionsBatchResults
+	BatchPatchIGAScriptQuestions(ctx context.Context, arg []BatchPatchIGAScriptQuestionsParams) *BatchPatchIGAScriptQuestionsBatchResults
 	CreateIGAChatLog(ctx context.Context, arg CreateIGAChatLogParams) (IgaChatLog, error)
 	CreateIGAScriptQuestion(ctx context.Context, arg CreateIGAScriptQuestionParams) (IgaScriptQuestion, error)
 	CreateIGASession(ctx context.Context, arg CreateIGASessionParams) (IgaSession, error)
@@ -27,9 +33,6 @@ type Querier interface {
 	IGAScriptQuestionByID(ctx context.Context, arg IGAScriptQuestionByIDParams) (IgaScriptQuestion, error)
 	IGAScriptQuestionExistsByReadableID(ctx context.Context, arg IGAScriptQuestionExistsByReadableIDParams) (bool, error)
 	IGAScriptQuestionIDsBySessionID(ctx context.Context, arg IGAScriptQuestionIDsBySessionIDParams) ([]uuid.UUID, error)
-	//-
-	//- IGA Questions Management ---
-	//-
 	IGAScriptQuestionsBySessionID(ctx context.Context, arg IGAScriptQuestionsBySessionIDParams) ([]IgaScriptQuestion, error)
 	IGASessionByID(ctx context.Context, arg IGASessionByIDParams) (IgaSession, error)
 	//-

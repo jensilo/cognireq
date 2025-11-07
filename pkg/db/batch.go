@@ -11,11 +11,199 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
 	ErrBatchAlreadyClosed = errors.New("batch already closed")
 )
+
+const batchCreateIGAScriptQuestions = `-- name: BatchCreateIGAScriptQuestions :batchexec
+INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
+SELECT $1, $2, $3, $4, $5, $6
+FROM iga_sessions
+WHERE iga_sessions.id = $1 AND iga_sessions.user_id = $7
+`
+
+type BatchCreateIGAScriptQuestionsBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type BatchCreateIGAScriptQuestionsParams struct {
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	ReadableID   string      `json:"readable_id"`
+	QuestionText string      `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    int16       `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+	UserID       uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) BatchCreateIGAScriptQuestions(ctx context.Context, arg []BatchCreateIGAScriptQuestionsParams) *BatchCreateIGAScriptQuestionsBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.IgaSessionID,
+			a.ReadableID,
+			a.QuestionText,
+			a.NoteText,
+			a.SortOrder,
+			a.Metadata,
+			a.UserID,
+		}
+		batch.Queue(batchCreateIGAScriptQuestions, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &BatchCreateIGAScriptQuestionsBatchResults{br, len(arg), false}
+}
+
+func (b *BatchCreateIGAScriptQuestionsBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *BatchCreateIGAScriptQuestionsBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const batchDeleteIGAScriptQuestions = `-- name: BatchDeleteIGAScriptQuestions :batchexec
+
+DELETE FROM iga_script_questions
+WHERE
+    iga_script_questions.id = $1 AND iga_script_questions.iga_session_id = $2
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $3)
+`
+
+type BatchDeleteIGAScriptQuestionsBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type BatchDeleteIGAScriptQuestionsParams struct {
+	ID           uuid.UUID `json:"id"`
+	IgaSessionID uuid.UUID `json:"iga_session_id"`
+	UserID       uuid.UUID `json:"user_id"`
+}
+
+// -
+// - IGA Questions Management ---
+// -
+func (q *Queries) BatchDeleteIGAScriptQuestions(ctx context.Context, arg []BatchDeleteIGAScriptQuestionsParams) *BatchDeleteIGAScriptQuestionsBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.ID,
+			a.IgaSessionID,
+			a.UserID,
+		}
+		batch.Queue(batchDeleteIGAScriptQuestions, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &BatchDeleteIGAScriptQuestionsBatchResults{br, len(arg), false}
+}
+
+func (b *BatchDeleteIGAScriptQuestionsBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *BatchDeleteIGAScriptQuestionsBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
+
+const batchPatchIGAScriptQuestions = `-- name: BatchPatchIGAScriptQuestions :batchexec
+UPDATE iga_script_questions
+SET
+    question_text = COALESCE($1, question_text),
+    note_text = COALESCE($2, note_text),
+    sort_order = COALESCE($3, sort_order),
+    metadata = COALESCE($4, metadata)
+WHERE
+    iga_script_questions.id = $5 AND iga_script_questions.iga_session_id = $6
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = $6 AND sess.user_id = $7)
+`
+
+type BatchPatchIGAScriptQuestionsBatchResults struct {
+	br     pgx.BatchResults
+	tot    int
+	closed bool
+}
+
+type BatchPatchIGAScriptQuestionsParams struct {
+	QuestionText pgtype.Text `json:"question_text"`
+	NoteText     pgtype.Text `json:"note_text"`
+	SortOrder    pgtype.Int2 `json:"sort_order"`
+	Metadata     []byte      `json:"metadata"`
+	ID           uuid.UUID   `json:"id"`
+	IgaSessionID uuid.UUID   `json:"iga_session_id"`
+	UserID       uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) BatchPatchIGAScriptQuestions(ctx context.Context, arg []BatchPatchIGAScriptQuestionsParams) *BatchPatchIGAScriptQuestionsBatchResults {
+	batch := &pgx.Batch{}
+	for _, a := range arg {
+		vals := []interface{}{
+			a.QuestionText,
+			a.NoteText,
+			a.SortOrder,
+			a.Metadata,
+			a.ID,
+			a.IgaSessionID,
+			a.UserID,
+		}
+		batch.Queue(batchPatchIGAScriptQuestions, vals...)
+	}
+	br := q.db.SendBatch(ctx, batch)
+	return &BatchPatchIGAScriptQuestionsBatchResults{br, len(arg), false}
+}
+
+func (b *BatchPatchIGAScriptQuestionsBatchResults) Exec(f func(int, error)) {
+	defer b.br.Close()
+	for t := 0; t < b.tot; t++ {
+		if b.closed {
+			if f != nil {
+				f(t, ErrBatchAlreadyClosed)
+			}
+			continue
+		}
+		_, err := b.br.Exec()
+		if f != nil {
+			f(t, err)
+		}
+	}
+}
+
+func (b *BatchPatchIGAScriptQuestionsBatchResults) Close() error {
+	b.closed = true
+	return b.br.Close()
+}
 
 const reorderIGAScriptQuestions = `-- name: ReorderIGAScriptQuestions :batchexec
 UPDATE iga_script_questions

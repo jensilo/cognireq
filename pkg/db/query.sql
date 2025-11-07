@@ -105,6 +105,29 @@ RETURNING *;
 --- IGA Questions Management ---
 ---
 
+-- name: BatchDeleteIGAScriptQuestions :batchexec
+DELETE FROM iga_script_questions
+WHERE
+    iga_script_questions.id = $1 AND iga_script_questions.iga_session_id = $2
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = iga_script_questions.iga_session_id AND user_id = $3);
+
+-- name: BatchPatchIGAScriptQuestions :batchexec
+UPDATE iga_script_questions
+SET
+    question_text = COALESCE(sqlc.narg('question_text'), question_text),
+    note_text = COALESCE(sqlc.narg('note_text'), note_text),
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    metadata = COALESCE(sqlc.narg('metadata'), metadata)
+WHERE
+    iga_script_questions.id = sqlc.arg('id') AND iga_script_questions.iga_session_id = sqlc.arg('iga_session_id')
+    AND EXISTS (SELECT 1 FROM iga_sessions AS sess WHERE sess.id = sqlc.arg('iga_session_id') AND sess.user_id = sqlc.arg('user_id'));
+
+-- name: BatchCreateIGAScriptQuestions :batchexec
+INSERT INTO iga_script_questions (iga_session_id, readable_id, question_text, note_text, sort_order, metadata)
+SELECT sqlc.arg('iga_session_id'), sqlc.arg('readable_id'), sqlc.arg('question_text'), sqlc.arg('note_text'), sqlc.arg('sort_order'), sqlc.arg('metadata')
+FROM iga_sessions
+WHERE iga_sessions.id = sqlc.arg('iga_session_id') AND iga_sessions.user_id = sqlc.arg('user_id');
+
 -- name: IGAScriptQuestionsBySessionID :many
 SELECT iga_script_questions.* FROM iga_script_questions
 INNER JOIN iga_sessions ON iga_script_questions.iga_session_id = iga_sessions.id
