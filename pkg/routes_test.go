@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jensilo/cognireq/pkg/cfg"
 	"github.com/jensilo/cognireq/pkg/db"
 	"github.com/jensilo/cognireq/pkg/prmpt"
 	"github.com/jensilo/cognireq/pkg/types"
@@ -20,6 +22,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// todo review
+// todo add more tests for mock AI chat client
 
 type testServer struct {
 	router *http.ServeMux
@@ -42,7 +47,10 @@ func newTestServer(t *testing.T) *testServer {
 
 	userService := NewUserService(queries)
 	igaService := NewIGAService(queries)
-	services := NewServices(userService, igaService, prmpt.NewPromptService(), nil)
+	promptService := prmpt.NewPromptService()
+	geminiService, err := NewGeminiAIService(context.Background(), cfg.DefaultGetEnv, promptService, logger)
+	assert.NoError(t, err)
+	services := NewServices(userService, igaService, promptService, geminiService)
 
 	router, err := NewServer(logger, services)
 	require.NoError(t, err)

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jensilo/cognireq/pkg/cfg"
@@ -13,32 +16,32 @@ import (
 	"google.golang.org/genai"
 )
 
-const (
-	GeminiAIServiceAPIKey = "GEMINI_AI_SERVICE_API_KEY"
-	GeminiAIDefaultModel  = "GEMINI_AI_DEFAULT_MODEL"
-)
-
 type IGAMessageHandler interface {
 	HandleIGAMessage(context.Context, HandleIGAMessageParams) (*HandleIGAMessageResult, error)
 }
 
 type GeminiAIService struct {
-	client *genai.Client
-	model  string
-	prompt *prmpt.PromptService
-	logger *slog.Logger
+	client   *genai.Client
+	model    string
+	prompt   *prmpt.PromptService
+	logger   *slog.Logger
+	testMode bool
 }
 
 func NewGeminiAIService(ctx context.Context, envFunc cfg.GetEnvFunc, ps *prmpt.PromptService, l *slog.Logger) (*GeminiAIService, error) {
+	if cfg.EvaluateBool(envFunc(cfg.AITestMode)) {
+		return &GeminiAIService{client: nil, model: "test-1", prompt: ps, logger: l, testMode: true}, nil
+	}
+
 	c, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  envFunc(GeminiAIServiceAPIKey),
+		APIKey:  envFunc(cfg.GeminiAIServiceAPIKey),
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate gemini genai client: %w", err)
 	}
 
-	m := envFunc(GeminiAIDefaultModel)
+	m := envFunc(cfg.GeminiAIDefaultModel)
 	if m == "" {
 		return nil, fmt.Errorf("no gemini ai default model given, consider using gemini-2.5-flash")
 	}
@@ -102,7 +105,11 @@ type igaResponse struct {
 
 func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
 	var client geminiContentGenerator
-	client = g.client.Models
+	if g.testMode {
+		client = testAIClient{logger: g.logger}
+	} else {
+		client = g.client.Models
+	}
 
 	return g.geminiHandleIGAMessage(ctx, client, params)
 }
@@ -380,6 +387,186 @@ func intoHandleIGAMessageResult(logger *slog.Logger, params HandleIGAMessagePara
 			}
 
 			result.QuestionsToDelete = append(result.QuestionsToDelete, original.ID)
+		}
+	}
+
+	return result
+}
+
+type testAIClient struct {
+	logger *slog.Logger
+}
+
+func (c testAIClient) GenerateContent(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	var message string
+	var res igaResponse
+
+	if len(contents) < 1 || len(contents[0].Parts) < 1 || contents[0].Parts[0].Text == "" {
+		return nil, fmt.Errorf("test AI client request to GenerateContent: non-empty contents expected")
+	}
+	var input igaPrompt
+	err := json.Unmarshal([]byte(contents[0].Parts[0].Text), &input)
+	if err != nil {
+		return nil, fmt.Errorf("test AI client can not unmarshal into iga prompt: %w", err)
+	}
+	lastMessage := input.UserMessageText
+	commands := parseCommands(lastMessage)
+
+	if commands.questionsToCreate != nil {
+		message = fmt.Sprintf("[read command: question create, param amount: %d]\n", commands.questionsToCreate.amount)
+		igaQuestions := make([]igaQuestion, commands.questionsToCreate.amount)
+		for i := range commands.questionsToCreate.amount {
+			str := uuid.NewString()
+			igaQuestions[i] = igaQuestion{
+				QuestionText: fmt.Sprintf("Q no. %d: %s", i, str),
+				NoteText:     fmt.Sprintf("N no. %d: %s", i, str),
+				SortOrder:    int16(i),
+			}
+		}
+		res.QuestionsToCreate = igaQuestions
+	}
+
+	if commands.questionsToUpdate != nil {
+		message = fmt.Sprintf("%s[read command: question update, param readable ids: %s]\n", message, strings.Join(commands.questionsToUpdate.readableIds, " "))
+		igaQuestions := make([]igaQuestion, len(commands.questionsToUpdate.readableIds))
+		for i, id := range commands.questionsToUpdate.readableIds {
+			str := uuid.NewString()
+			igaQuestions[i] = igaQuestion{
+				ReadableID:   id,
+				QuestionText: fmt.Sprintf("Q (for %s) updated no. %d: %s", id, i, str),
+				NoteText:     fmt.Sprintf("N (for %s) updated no. %d: %s", id, i, str),
+				SortOrder:    int16(i),
+			}
+		}
+		res.QuestionsToUpdate = igaQuestions
+	}
+
+	if commands.questionsToDelete != nil {
+		message = fmt.Sprintf("%s[read command: question delete, param readable ids: %s]\n", message, strings.Join(commands.questionsToDelete.readableIds, " "))
+		res.QuestionsToDeleteByID = commands.questionsToDelete.readableIds
+	}
+
+	if commands.contextRefine != nil {
+		message = fmt.Sprintf("%s[read command: context refine, param fields: %s]\n", message, strings.Join(commands.contextRefine.fields, " "))
+		for i, field := range commands.contextRefine.fields {
+			switch field {
+			case "project_summary":
+				res.ContextData.ProjectSummary = fmt.Sprintf("refined by mock LLM: %s (%d)", uuid.NewString(), i)
+			case "stakeholder_summary":
+				res.ContextData.StakeholderSummary = fmt.Sprintf("refined by mock LLM: %s (%d)", uuid.NewString(), i)
+			case "interview_goal":
+				res.ContextData.InterviewGoal = fmt.Sprintf("refined by mock LLM: %s (%d)", uuid.NewString(), i)
+			case "interview_advice":
+				res.ContextData.InterviewAdvice = fmt.Sprintf("refined by mock LLM: %s (%d)", uuid.NewString(), i)
+			default:
+				message = fmt.Sprintf("%s[could not match context refine field: %s (%d)]\n", message, field, i)
+			}
+		}
+	}
+
+	if message == "" {
+		message = fmt.Sprintf("[no commands read]\n")
+	}
+
+	res.AssistantResponseText = fmt.Sprintf("%s\nThis is a stubbed response from the mock LLM.", message)
+	respJSON, err := json.Marshal(res)
+	if err != nil {
+		return nil, fmt.Errorf("test ai client failed to parse iga response: %w", err)
+	}
+
+	return &genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{
+			{
+				Content: &genai.Content{
+					Parts: []*genai.Part{
+						{
+							Text: string(respJSON),
+						},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+type questionCreateCommand struct {
+	amount int
+}
+
+type questionUpdateCommand struct {
+	readableIds []string
+}
+
+type questionDeleteCommand struct {
+	readableIds []string
+}
+
+type contextRefineCommand struct {
+	// fields possible values are "project_summary", "stakeholder_summary", "interview_goal", "interview_advice"
+	fields []string
+}
+
+type generateContentCommand struct {
+	questionsToCreate *questionCreateCommand
+	questionsToUpdate *questionUpdateCommand
+	questionsToDelete *questionDeleteCommand
+	contextRefine     *contextRefineCommand
+}
+
+// Use four separate, focused regular expressions.
+// The `(?s)` flag enables dotall mode so '.' matches newlines, allowing commands to span lines.
+var (
+	// Matches [/question create X] and captures X (the amount).
+	createRegexp = regexp.MustCompile(`(?s)\[/question\s+create\s+(\d+)\]`)
+
+	// Matches [/question update Q-ABC Q-CDE ...] and captures all IDs.
+	// Requires at least one ID (Q-[A-Z]{3}) and captures the space-separated list.
+	updateRegexp = regexp.MustCompile(`(?s)\[/question\s+update\s+((?:Q-[A-Z]{3}(?:\s+Q-[A-Z]{3})*))\]`)
+
+	// Matches [/question delete Q-CDE Q-ABC ...] and captures all IDs.
+	// Requires at least one ID and captures the space-separated list.
+	deleteRegexp = regexp.MustCompile(`(?s)\[/question\s+delete\s+((?:Q-[A-Z]{3}(?:\s+Q-[A-Z]{3})*))\]`)
+
+	// Matches [/context refine field1 field2 ...] and captures all fields.
+	// Matches one to four valid field names, space-separated.
+	refineRegexp = regexp.MustCompile(`(?s)\[/context\s+refine\s+((?:project_summary|stakeholder_summary|interview_goal|interview_advice)(?:\s+(?:project_summary|stakeholder_summary|interview_goal|interview_advice)){0,3})\]`)
+)
+
+// parseCommands extracts the first occurrence of each command type from an input string.
+func parseCommands(input string) generateContentCommand {
+	result := generateContentCommand{}
+
+	// 'question create'
+	if match := createRegexp.FindStringSubmatch(input); len(match) > 1 {
+		if amount, err := strconv.Atoi(match[1]); err == nil {
+			result.questionsToCreate = &questionCreateCommand{amount: amount}
+		}
+	}
+
+	// 'question update'
+	if match := updateRegexp.FindStringSubmatch(input); len(match) > 1 {
+		idsStr := match[1]
+		ids := strings.Fields(idsStr)
+		if len(ids) > 0 {
+			result.questionsToUpdate = &questionUpdateCommand{readableIds: ids}
+		}
+	}
+
+	// 'question delete'
+	if match := deleteRegexp.FindStringSubmatch(input); len(match) > 1 {
+		idsStr := match[1]
+		ids := strings.Fields(idsStr)
+		if len(ids) > 0 {
+			result.questionsToDelete = &questionDeleteCommand{readableIds: ids}
+		}
+	}
+
+	// 'context refine'
+	if match := refineRegexp.FindStringSubmatch(input); len(match) > 1 {
+		fieldsStr := match[1]
+		fields := strings.Fields(fieldsStr)
+		if len(fields) > 0 {
+			result.contextRefine = &contextRefineCommand{fields: fields}
 		}
 	}
 

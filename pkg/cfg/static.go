@@ -1,6 +1,9 @@
 package cfg
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 const (
 	KeyDatabaseUrl       = "PG_DATABASE_URL"
@@ -10,6 +13,10 @@ const (
 	CORSAllowCredentials = "CORS_ALLOW_CREDENTIALS"
 	CORSAllowMethods     = "CORS_ALLOW_METHODS"
 	CORSAllowHeaders     = "CORS_ALLOW_HEADERS"
+
+	GeminiAIServiceAPIKey = "GEMINI_AI_SERVICE_API_KEY"
+	GeminiAIDefaultModel  = "GEMINI_AI_DEFAULT_MODEL"
+	AITestMode            = "AI_TEST_MODE" // AITestMode evaluated with EvaluateBool
 )
 
 type GetEnvFunc func(string) string
@@ -39,8 +46,21 @@ func DefaultGetEnv(key string) string {
 		return "GET, POST, PATCH, DELETE, OPTIONS"
 	case CORSAllowHeaders:
 		return "Content-Type"
+	case AITestMode:
+		return "true"
 	default:
 		return ""
+	}
+}
+
+func EvaluateBool(input string) bool {
+	input = strings.ToUpper(input)
+
+	switch input {
+	case "", "FALSE", "F":
+		return false
+	default:
+		return true
 	}
 }
 
