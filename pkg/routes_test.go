@@ -23,9 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// todo review
-// todo add more tests for mock AI chat client
-
 type testServer struct {
 	router *http.ServeMux
 	server *httptest.Server
@@ -963,6 +960,468 @@ func TestSendChatController(t *testing.T) {
 		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
 		t.Log("message", logs[0].MessageText, "role", logs[0].Role, "created at", logs[0].CreatedAt)
 		t.Log("message", logs[1].MessageText, "role", logs[1].Role, "created at", logs[1].CreatedAt)
+	})
+
+	t.Run("create questions via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for AI Create Questions")
+		messageText := "[/question create 3]"
+		instructionType := types.IGAChatLogInstructionMessage
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, "[read command: question create, param amount: 3]")
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2)
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: question create, param amount: 3]")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify three questions were created
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 3)
+		assertSortedQuestions(t, questions)
+		assert.Contains(t, questions[0].QuestionText, "Q no. 0:")
+		assert.Contains(t, questions[1].QuestionText, "Q no. 1:")
+		assert.Contains(t, questions[2].QuestionText, "Q no. 2:")
+	})
+
+	t.Run("update questions via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for AI Update Questions")
+
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Original Q1")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Original Q2")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Original Q3")
+
+		// ensure they are in the DB and get their readable IDs
+		initialQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, initialQuestions, 3)
+
+		readableIDs := []string{initialQuestions[0].ReadableID, initialQuestions[1].ReadableID, initialQuestions[2].ReadableID}
+		messageText := fmt.Sprintf("[/question update %s %s %s]", readableIDs[0], readableIDs[1], readableIDs[2])
+		instructionType := types.IGAChatLogInstructionMessage
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, fmt.Sprintf("[read command: question update, param readable ids: %s %s %s]", readableIDs[0], readableIDs[1], readableIDs[2]))
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user message + AI response
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: question update")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify questions were updated
+		updatedQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, updatedQuestions, 3)
+		assertSortedQuestions(t, updatedQuestions) // sort order should still be normalized
+
+		// check that question texts have changed and contain the readable ID
+		for _, q := range updatedQuestions {
+			assert.Contains(t, q.QuestionText, "updated")
+			assert.Contains(t, q.QuestionText, q.ReadableID)
+			assert.Contains(t, q.NoteText, "updated")
+			assert.Contains(t, q.NoteText, q.ReadableID)
+		}
+	})
+
+	t.Run("delete questions via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for AI Delete Questions")
+
+		// create 3 questions
+		q1 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 1 to keep")
+		q2 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 2 to delete")
+		q3 := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question 3 to delete")
+
+		// ensure they are in the DB and get their readable IDs
+		initialQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, initialQuestions, 3)
+
+		// delete q2 and q3
+		readableIDsToDelete := []string{q2.ReadableID, q3.ReadableID}
+		messageText := fmt.Sprintf("[/question delete %s %s]", readableIDsToDelete[0], readableIDsToDelete[1])
+		instructionType := types.IGAChatLogInstructionMessage
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, fmt.Sprintf("[read command: question delete, param readable ids: %s %s]", readableIDsToDelete[0], readableIDsToDelete[1]))
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user message + AI response
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: question delete")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify only one question remains and it's q1
+		remainingQuestions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, remainingQuestions, 1)
+		assertSortedQuestions(t, remainingQuestions) // Sort order should be normalized (0)
+		assert.Equal(t, q1.ID, remainingQuestions[0].ID)
+		assert.Equal(t, "Question 1 to keep", remainingQuestions[0].QuestionText)
+	})
+
+	t.Run("refine one context via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		initialContext := types.IGASessionContextData{
+			StakeholderSummary: "Initial Stakeholder Summary",
+			ProjectSummary:     "Initial Project Summary",
+			InterviewGoal:      "Initial Interview Goal",
+			InterviewAdvice:    "Initial Interview Advice",
+		}
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for AI Refine Context")
+		session.ContextData = initialContext // manually set context data for the test
+		_, err := ts.iga.PatchSession(t.Context(), ts.authedUser.ID, session.ID, types.IGASessionToUpdate{
+			ContextData: &initialContext,
+		})
+		require.NoError(t, err)
+
+		messageText := "[/context refine project_summary]"
+		instructionType := types.IGAChatLogInstructionRefineContext
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, "[read command: context refine, param fields: project_summary]")
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user message + AI response
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: context refine")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify session context data was updated
+		updatedSession, err := ts.iga.SessionByID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, initialContext.ProjectSummary, updatedSession.ContextData.ProjectSummary)
+		assert.Contains(t, updatedSession.ContextData.ProjectSummary, "refined by mock LLM")
+		assert.Equal(t, initialContext.StakeholderSummary, updatedSession.ContextData.StakeholderSummary) // not changed
+		assert.Equal(t, initialContext.InterviewGoal, updatedSession.ContextData.InterviewGoal)           // not changed
+		assert.Equal(t, initialContext.InterviewAdvice, updatedSession.ContextData.InterviewAdvice)       // not changed
+	})
+
+	t.Run("refine all context via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		initialContext := types.IGASessionContextData{
+			StakeholderSummary: "Initial Stakeholder Summary",
+			ProjectSummary:     "Initial Project Summary",
+			InterviewGoal:      "Initial Interview Goal",
+			InterviewAdvice:    "Initial Interview Advice",
+		}
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for AI Refine Context")
+		session.ContextData = initialContext // manually set context data for the test
+		_, err := ts.iga.PatchSession(t.Context(), ts.authedUser.ID, session.ID, types.IGASessionToUpdate{
+			ContextData: &initialContext,
+		})
+		require.NoError(t, err)
+
+		messageText := "[/context refine project_summary stakeholder_summary interview_goal interview_advice]"
+		instructionType := types.IGAChatLogInstructionRefineContext
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, "[read command: context refine, param fields: project_summary stakeholder_summary interview_goal interview_advice]")
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user message + AI response
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: context refine")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify session context data was updated
+		updatedSession, err := ts.iga.SessionByID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, initialContext.ProjectSummary, updatedSession.ContextData.ProjectSummary)
+		assert.Contains(t, updatedSession.ContextData.ProjectSummary, "refined by mock LLM")
+		assert.NotEqual(t, initialContext.StakeholderSummary, updatedSession.ContextData.StakeholderSummary)
+		assert.Contains(t, updatedSession.ContextData.StakeholderSummary, "refined by mock LLM")
+		assert.NotEqual(t, initialContext.InterviewGoal, updatedSession.ContextData.InterviewGoal)
+		assert.Contains(t, updatedSession.ContextData.InterviewGoal, "refined by mock LLM")
+		assert.NotEqual(t, initialContext.InterviewAdvice, updatedSession.ContextData.InterviewAdvice)
+		assert.Contains(t, updatedSession.ContextData.InterviewAdvice, "refined by mock LLM")
+	})
+
+	t.Run("refine no context via AI bc insufficient instruction type", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		initialContext := types.IGASessionContextData{
+			StakeholderSummary: "Initial Stakeholder Summary",
+		}
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session For No AI Refine Context With Insufficient Instruction Type")
+		session.ContextData = initialContext // manually set context data for the test
+		_, err := ts.iga.PatchSession(t.Context(), ts.authedUser.ID, session.ID, types.IGASessionToUpdate{
+			ContextData: &initialContext,
+		})
+		require.NoError(t, err)
+
+		messageText := "[/context refine stakeholder_summary]"
+		instructionType := types.IGAChatLogInstructionMessage
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, "[read command: context refine, param fields: stakeholder_summary]")
+
+		// verify the user's message and assistant's response are in the DB
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // original user message + AI response
+		assert.Equal(t, messageText, logs[0].MessageText)
+		assert.Equal(t, types.IGAChatLogRoleUser, logs[0].Role)
+		assert.Contains(t, logs[1].MessageText, "[read command: context refine")
+		assert.Equal(t, types.IGAChatLogRoleAssistant, logs[1].Role)
+
+		// verify session context data was NOT updated
+		updatedSession, err := ts.iga.SessionByID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		assert.Equal(t, initialContext.ProjectSummary, updatedSession.ContextData.ProjectSummary) // not changed bc of message instruction type
+	})
+
+	t.Run("multiple commands via AI", func(t *testing.T) {
+		t.Parallel()
+		ts := newTestServer(t)
+		ts.doAuth(t)
+
+		// Initial setup: session with context and some questions
+		initialContext := types.IGASessionContextData{
+			StakeholderSummary: "Initial Stakeholder Summary for Multi",
+			ProjectSummary:     "Initial Project Summary for Multi",
+			InterviewGoal:      "Initial Interview Goal for Multi",
+			InterviewAdvice:    "Initial Interview Advice for Multi",
+		}
+		session := ts.createTestSession(t, ts.authedUser.ID, "Chat Session for Multiple AI Commands")
+		session.ContextData = initialContext
+		_, err := ts.iga.PatchSession(t.Context(), ts.authedUser.ID, session.ID, types.IGASessionToUpdate{
+			ContextData: &initialContext,
+		})
+		require.NoError(t, err)
+
+		qToUpdate := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question to Update")
+		qToDelete := ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Question to Delete")
+		_ = ts.createTestQuestion(t, ts.authedUser.ID, session.ID, "Another Question to Keep") // keep one question
+
+		// construct message with multiple commands
+		messageText := fmt.Sprintf(
+			"[/question create 1]\n[/question update %s]\n[/question delete %s]\n[/context refine project_summary]",
+			qToUpdate.ReadableID,
+			qToDelete.ReadableID,
+		)
+		instructionType := types.IGAChatLogInstructionAll
+
+		payload := sendChatPayload{
+			MessageText: messageText,
+			Instruction: instructionType,
+		}
+		payloadJSON, err := json.Marshal(payload)
+		require.NoError(t, err)
+		req := ts.newAuthenticatedRequest(t, http.MethodPost, fmt.Sprintf("/api/v1/iga/%s/chat", session.ID.String()), payloadJSON)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.server.Client().Do(req)
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, res.Body.Close()) }()
+		require.Equal(t, http.StatusCreated, res.StatusCode)
+
+		var chatResp sendChatResponse
+		err = json.NewDecoder(res.Body).Decode(&chatResp)
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, chatResp.ID)
+		assert.Equal(t, session.ID, chatResp.IGASessionID)
+		assert.Equal(t, APIIgaChatLogRole(types.IGAChatLogRoleAssistant), chatResp.Role)
+		assert.NotEmpty(t, chatResp.MessageText)
+		assert.NotZero(t, chatResp.CreatedAt)
+		assert.Contains(t, chatResp.MessageText, "[read command: question create, param amount: 1]")
+		assert.Contains(t, chatResp.MessageText, fmt.Sprintf("[read command: question update, param readable ids: %s]", qToUpdate.ReadableID))
+		assert.Contains(t, chatResp.MessageText, fmt.Sprintf("[read command: question delete, param readable ids: %s]", qToDelete.ReadableID))
+		assert.Contains(t, chatResp.MessageText, "[read command: context refine, param fields: project_summary]")
+
+		// verify chat logs
+		logs, err := ts.iga.ChatLogBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, logs, 2) // user message + AI response
+
+		// verify questions: 3 initial - 1 deleted + 1 created = 3 questions
+		questions, err := ts.iga.QuestionsBySessionID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		require.Len(t, questions, 3)
+		assertSortedQuestions(t, questions)
+
+		// check updated question
+		foundUpdated := false
+		for _, q := range questions {
+			if q.ID == qToUpdate.ID {
+				assert.Contains(t, q.QuestionText, "updated")
+				foundUpdated = true
+			}
+		}
+		assert.True(t, foundUpdated, "Question to update was not found or not updated")
+
+		// check deleted question is gone
+		foundDeleted := false
+		for _, q := range questions {
+			if q.ID == qToDelete.ID {
+				foundDeleted = true
+				break
+			}
+		}
+		assert.False(t, foundDeleted, "Question to delete was still found")
+
+		// verify context data was updated
+		updatedSession, err := ts.iga.SessionByID(t.Context(), ts.authedUser.ID, session.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, initialContext.ProjectSummary, updatedSession.ContextData.ProjectSummary)
+		assert.Contains(t, updatedSession.ContextData.ProjectSummary, "refined by mock LLM")
+		assert.Equal(t, initialContext.StakeholderSummary, updatedSession.ContextData.StakeholderSummary) // not refined
 	})
 
 	t.Run("unauthenticated", func(t *testing.T) {

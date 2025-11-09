@@ -101,8 +101,6 @@ type igaResponse struct {
 	QuestionsToDeleteByID []string       `json:"questions_to_delete_by_id"`
 }
 
-// todo evaluate implementing calling HandleIGAMessage with instruction type "all" on session creation
-
 func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
 	var client geminiContentGenerator
 	if g.testMode {
@@ -516,18 +514,18 @@ type generateContentCommand struct {
 // Use four separate, focused regular expressions.
 // The `(?s)` flag enables dotall mode so '.' matches newlines, allowing commands to span lines.
 var (
-	// Matches [/question create X] and captures X (the amount).
+	// createRegexp matches [/question create X] and captures X (the amount).
 	createRegexp = regexp.MustCompile(`(?s)\[/question\s+create\s+(\d+)\]`)
 
-	// Matches [/question update Q-ABC Q-CDE ...] and captures all IDs.
+	// updateRegexp matches [/question update Q-ABC Q-CDE ...] and captures all IDs.
 	// Requires at least one ID (Q-[A-Z]{3}) and captures the space-separated list.
 	updateRegexp = regexp.MustCompile(`(?s)\[/question\s+update\s+((?:Q-[A-Z]{3}(?:\s+Q-[A-Z]{3})*))\]`)
 
-	// Matches [/question delete Q-CDE Q-ABC ...] and captures all IDs.
+	// deleteRegexp matches [/question delete Q-CDE Q-ABC ...] and captures all IDs.
 	// Requires at least one ID and captures the space-separated list.
 	deleteRegexp = regexp.MustCompile(`(?s)\[/question\s+delete\s+((?:Q-[A-Z]{3}(?:\s+Q-[A-Z]{3})*))\]`)
 
-	// Matches [/context refine field1 field2 ...] and captures all fields.
+	// refineRegexp matches [/context refine field1 field2 ...] and captures all fields.
 	// Matches one to four valid field names, space-separated.
 	refineRegexp = regexp.MustCompile(`(?s)\[/context\s+refine\s+((?:project_summary|stakeholder_summary|interview_goal|interview_advice)(?:\s+(?:project_summary|stakeholder_summary|interview_goal|interview_advice)){0,3})\]`)
 )

@@ -7,8 +7,9 @@ The AI-Native Requirements Clarity Platform.
 # TODOs
 
 ## Backend
-- [ ] Implement LLM functionality
+- [X] Implement LLM functionality
 - [X] Review rename of `UpdatedIGASession` => `TouchIGASessionUpdatedAt`
+- [ ] Evaluate implementing calling HandleIGAMessage with instruction type "all" on session creation
 
 ## Frontend
 - [X] Fix sorting order on questionnaire
