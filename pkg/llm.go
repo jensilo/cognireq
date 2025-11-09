@@ -101,6 +101,17 @@ type igaResponse struct {
 // todo evaluate implementing calling HandleIGAMessage with instruction type "all" on session creation
 
 func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
+	var client geminiContentGenerator
+	client = g.client.Models
+
+	return g.geminiHandleIGAMessage(ctx, client, params)
+}
+
+type geminiContentGenerator interface {
+	GenerateContent(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error)
+}
+
+func (g *GeminiAIService) geminiHandleIGAMessage(ctx context.Context, client geminiContentGenerator, params HandleIGAMessageParams) (*HandleIGAMessageResult, error) {
 	prompt, err := intoIgaPrompt(params)
 	if err != nil {
 		return nil, err
@@ -204,7 +215,7 @@ func (g *GeminiAIService) HandleIGAMessage(ctx context.Context, params HandleIGA
 	)
 
 	// todo implement sane, logged, capped re-try, using generic function to re-try and re-parse JSON on previous failures
-	result, err := g.client.Models.GenerateContent(
+	result, err := client.GenerateContent(
 		ctx,
 		g.model,
 		genai.Text(string(promptJSON)),
