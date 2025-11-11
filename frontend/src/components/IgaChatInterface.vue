@@ -53,8 +53,13 @@ defineExpose({ setChatInput })
   <div class="flex flex-col h-full bg-neutral-50">
     <ErrorMessage :message="igaStore.errorSendingChatMessage?.message" />
 
+    <ErrorMessage v-if="chatLogs && igaStore.errorChatLogs" :message="igaStore.errorChatLogs?.message" />
+
+    <div v-if="!chatLogs && igaStore.errorChatLogs" class="m-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
+      {{ $t(`error.${igaStore.errorChatLogs?.message}`) }}
+    </div>
+
     <!-- Chat Log Display -->
-    <!-- TODO display (initial) loading error -->
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
       <LoadingSpinner v-if="igaStore.isLoadingChatLogs && chatLogs && chatLogs.length < 1" />
       <div v-else-if="chatLogs && chatLogs.length > 0">
@@ -82,7 +87,7 @@ defineExpose({ setChatInput })
           </div>
         </div>
       </div>
-      <div v-else class="text-center text-neutral-500">
+      <div v-else-if="!igaStore.errorChatLogs" class="text-center text-neutral-500">
         {{ $t('iga.chat.start-conversation') }}
       </div>
     </div>

@@ -18,6 +18,7 @@ declare module 'vue' {
     IHeroiconsArrowRightStartOnRectangle: typeof import('~icons/heroicons/arrow-right-start-on-rectangle')['default']
     IHeroiconsBoltSolid: typeof import('~icons/heroicons/bolt-solid')['default']
     IHeroiconsChevronDoubleLeft: typeof import('~icons/heroicons/chevron-double-left')['default']
+    IHeroiconsSparkles: typeof import('~icons/heroicons/sparkles')['default']
     LoadingSpinner: typeof import('./src/components/LoadingSpinner.vue')['default']
     LogoutButton: typeof import('./src/components/LogoutButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

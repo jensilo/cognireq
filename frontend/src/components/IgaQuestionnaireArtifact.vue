@@ -151,8 +151,6 @@ const citeQuestion = (readableId: string) => {
 
     <LoadingSpinner v-if="isLoadingQuestions && !activeSession"/>
 
-    <!-- TODO display (initial) loading error -->
-
     <div v-else-if="activeSession">
       <!-- Interview Goal -->
       <IgaContextEditableField
@@ -176,7 +174,11 @@ const citeQuestion = (readableId: string) => {
       />
 
       <!-- Questions/Notes List -->
-      <div class="mb-6">
+      <div v-if="igaQuestions.length < 1 && igaStore.errorQuestions" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
+        {{ $t(`error.${igaStore.errorQuestions?.message}`) }}
+      </div>
+
+      <div v-else class="mb-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">
           {{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
         <button
@@ -276,7 +278,7 @@ const citeQuestion = (readableId: string) => {
             </div>
           </div>
         </div>
-        <div v-else
+        <div v-else-if="!igaStore.errorQuestions"
              class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           {{ $t('iga.questionnaire.no-questions-message') }}
         </div>
