@@ -10,6 +10,7 @@ import type {
   UpdateIgaScriptQuestionPayload
 } from '@/api/igaService.ts'
 import {useI18n} from 'vue-i18n'
+import ErrorMessage from '@/components/Base/ErrorMessage.vue'
 
 const props = defineProps<{
   sessionId: string;
@@ -53,6 +54,7 @@ const saveQuestionEdit = async (questionId: string) => {
     note_text: editedNoteText.value,
   }
 
+  igaStore.resetUpdateIgaQuestionError() // reset error
   await igaStore.updateIgaQuestion({sessionId: props.sessionId, questionId, payload})
   editingQuestionId.value = null
 }
@@ -72,6 +74,7 @@ const addQuestion = async () => {
     sort_order: sortOrder,
   }
 
+  igaStore.resetCreateIgaQuestionError() // reset error
   await igaStore.createIgaQuestion({sessionId: props.sessionId, payload})
   editingQuestionId.value = null // clear any active editing after adding a new question
 
@@ -94,6 +97,7 @@ const cancelDelete = () => {
 
 const confirmDelete = async () => {
   if (!props.sessionId || !questionToDeleteId.value) return
+  igaStore.resetDeleteIgaQuestionError() // reset error
   await igaStore.deleteIgaQuestion({
     sessionId: props.sessionId,
     questionId: questionToDeleteId.value
@@ -122,6 +126,7 @@ const moveQuestion = async (questionId: string, direction: 'up' | 'down') => {
   // extract the IDs in the new desired order
   const orderedQuestionIds = reorderedQuestions.map(q => q.id)
 
+  igaStore.resetReorderIgaQuestionsError() // reset error
   // dispatch a single action to update the backend with the new order
   await igaStore.reorderIgaQuestions({ sessionId: props.sessionId, orderedQuestionIds })
 }
@@ -142,7 +147,11 @@ const citeQuestion = (readableId: string) => {
 
 <template>
   <div class="flex flex-col h-full bg-white p-4 overflow-y-auto" ref="questionnaireRoot">
+    <ErrorMessage :message="igaStore.errorCreatingQuestion?.message || igaStore.errorUpdatingQuestion?.message || igaStore.errorDeletingQuestion?.message || igaStore.errorReorderingQuestions?.message" />
+
     <LoadingSpinner v-if="isLoadingQuestions && !activeSession"/>
+
+    <!-- TODO display (initial) loading error -->
 
     <div v-else-if="activeSession">
       <!-- Interview Goal -->

@@ -11,6 +11,7 @@ declare module 'vue' {
     BaseHeader: typeof import('./src/components/Base/BaseHeader.vue')['default']
     BaseLayout: typeof import('./src/components/Base/BaseLayout.vue')['default']
     BaseNavbar: typeof import('./src/components/Base/BaseNavbar.vue')['default']
+    ErrorMessage: typeof import('./src/components/Base/ErrorMessage.vue')['default']
     IgaChatInterface: typeof import('./src/components/IgaChatInterface.vue')['default']
     IgaContextEditableField: typeof import('./src/components/IgaContextEditableField.vue')['default']
     IgaQuestionnaireArtifact: typeof import('./src/components/IgaQuestionnaireArtifact.vue')['default']

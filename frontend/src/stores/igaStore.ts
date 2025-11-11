@@ -36,7 +36,7 @@ export const useIgaStore = defineStore('iga', () => {
 
   const createIgaSessionMutation = useMutation({
     mutation: (payload: CreateIgaSessionPayload) => createIgaSession(payload),
-    onSuccess: () => cache.invalidateQueries({key: ['iga', 'sessions']}),
+    onSuccess: () => igaSessionsQuery.refetch(),
   })
 
   const activeIgaSessionQuery = useQuery({
@@ -116,9 +116,7 @@ export const useIgaStore = defineStore('iga', () => {
 
   const retryIgaChatMessageMutation = useMutation({
     mutation: (sessionId: string) => retryIgaChatMessage(sessionId),
-    onSuccess: () => {
-      cache.invalidateQueries({key: ['iga', 'session', route.params.id]})
-    },
+    onSuccess: () => activeIgaSessionQuery.refetch(),
   })
 
   // --- IGA Questions ---
@@ -173,12 +171,18 @@ export const useIgaStore = defineStore('iga', () => {
     // Actions
     createIgaSession: createIgaSessionMutation.mutateAsync,
     updateIgaSession: updateIgaSessionMutation.mutateAsync,
+    resetUpdateIgaSessionError: updateIgaSessionMutation.reset,
     sendIgaChatMessage: sendIgaChatMessageMutation.mutateAsync,
+    resetSendIgaChatMessageError: sendIgaChatMessageMutation.reset,
     retryIgaChatMessage: retryIgaChatMessageMutation.mutateAsync,
     createIgaQuestion: createIgaQuestionMutation.mutateAsync,
+    resetCreateIgaQuestionError: createIgaQuestionMutation.reset,
     updateIgaQuestion: updateIgaQuestionMutation.mutateAsync,
+    resetUpdateIgaQuestionError: updateIgaQuestionMutation.reset,
     deleteIgaQuestion: deleteIgaQuestionMutation.mutateAsync,
+    resetDeleteIgaQuestionError: deleteIgaQuestionMutation.reset,
     reorderIgaQuestions: reorderIgaQuestionsMutation.mutateAsync,
+    resetReorderIgaQuestionsError: reorderIgaQuestionsMutation.reset,
 
     // Loading states
     isLoadingSessions: igaSessionsQuery.isLoading,

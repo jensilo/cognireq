@@ -8,6 +8,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { IgaChatLogInstructionType, UpdateIgaSessionPayload } from '@/api/igaService.ts'
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
+import ErrorMessage from '@/components/Base/ErrorMessage.vue'
 
 const igaStore = useIgaStore()
 const route = useRoute()
@@ -45,6 +46,7 @@ const updateSessionContext = async (field: 'stakeholder_summary' | 'project_summ
     context_data: { ...currentContext, [field]: newValue },
   }
 
+  igaStore.resetUpdateIgaSessionError() // reset error before updating
   await igaStore.updateIgaSession({ id: sessionId.value, payload })
 }
 
@@ -55,6 +57,7 @@ const refineContext = (contextType: string) => {
 
 <template>
   <BaseLayout>
+    <ErrorMessage :message="igaStore.errorUpdatingSession?.message" />
     <div class="flex flex-col h-full">
       <div v-if="igaStore.isLoadingActiveSession && !igaStore.activeSession">
         <LoadingSpinner />

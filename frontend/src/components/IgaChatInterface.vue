@@ -3,6 +3,7 @@ import { ref, nextTick, watch, computed } from 'vue'
 import { useIgaStore } from '@/stores/igaStore.ts'
 import type { IgaChatLogInstructionType, SendChatPayload } from '@/api/igaService.ts'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import ErrorMessage from '@/components/Base/ErrorMessage.vue'
 
 const props = defineProps<{ sessionId: string }>()
 
@@ -30,6 +31,7 @@ const sendMessage = async () => {
     instruction: selectedInstruction.value || 'message',
   }
 
+  igaStore.resetSendIgaChatMessageError() // reset error before sending
   await igaStore.sendIgaChatMessage({ sessionId: props.sessionId, payload })
   chatInput.value = ''
   selectedInstruction.value = null
@@ -49,7 +51,10 @@ defineExpose({ setChatInput })
 
 <template>
   <div class="flex flex-col h-full bg-neutral-50">
+    <ErrorMessage :message="igaStore.errorSendingChatMessage?.message" />
+
     <!-- Chat Log Display -->
+    <!-- TODO display (initial) loading error -->
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
       <LoadingSpinner v-if="igaStore.isLoadingChatLogs && chatLogs && chatLogs.length < 1" />
       <div v-else-if="chatLogs && chatLogs.length > 0">
@@ -59,7 +64,7 @@ defineExpose({ setChatInput })
           :class="[
             'flex',
             log.role === 'user' ? 'justify-end' : 'justify-start',
-            'mt-4 first:mt-0', // Add margin-top to all but the first message
+            'mt-4 first:mt-0', // add margin-top to all but the first message
           ]"
         >
           <div
