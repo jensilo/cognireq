@@ -149,6 +149,8 @@ const citeQuestion = (readableId: string) => {
   <div class="flex flex-col h-full bg-white p-4 overflow-y-auto" ref="questionnaireRoot">
     <ErrorMessage :message="igaStore.errorCreatingQuestion?.message || igaStore.errorUpdatingQuestion?.message || igaStore.errorDeletingQuestion?.message || igaStore.errorReorderingQuestions?.message" />
 
+    <ErrorMessage v-if="igaQuestions && igaStore.errorQuestions" :message="igaStore.errorQuestions?.message" />
+
     <LoadingSpinner v-if="isLoadingQuestions && !activeSession"/>
 
     <div v-else-if="activeSession">
@@ -174,113 +176,115 @@ const citeQuestion = (readableId: string) => {
       />
 
       <!-- Questions/Notes List -->
-      <div v-if="igaQuestions.length < 1 && igaStore.errorQuestions" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
-        {{ $t(`error.${igaStore.errorQuestions?.message}`) }}
-      </div>
-
-      <div v-else class="mb-6">
+      <div class="mb-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">
           {{ $t('iga.questionnaire.questions-notes-heading') }}</h2>
-        <button
-          @click="addQuestion"
-          class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer disabled:cursor-progress disabled:bg-indigo-400"
-          :disabled="isIgaLoading"
-        >
-          {{ $t('iga.questionnaire.add-new-question-button') }}
-        </button>
-        <div v-if="igaQuestions && igaQuestions.length > 0" class="space-y-4">
-          <div v-for="question in igaQuestions" :key="question.id"
-               class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div class="flex justify-between items-start mb-2">
-              <h3 class="font-medium text-indigo-700">{{ question.readable_id }}</h3>
-              <div class="flex space-x-2">
-                <button
-                  @click="moveQuestionUp(question.id)"
-                  v-if="question.sort_order > 0"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
-                  :disabled="isIgaLoading || editingQuestionId === question.id"
-                >
-                  {{ $t('iga.questionnaire.move-up-button') }}
-                </button>
-                <button
-                  @click="moveQuestionDown(question.id)"
-                  v-if="question.sort_order < igaQuestions.length - 1"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
-                  :disabled="isIgaLoading || editingQuestionId === question.id"
-                >
-                  {{ $t('iga.questionnaire.move-down-button') }}
-                </button>
-                <button
-                  @click="citeQuestion(question.readable_id)"
-                  class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer disabled:cursor-progress"
+
+        <div v-if="igaQuestions.length < 1 && igaStore.errorQuestions" class="mb-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
+          {{ $t(`error.${igaStore.errorQuestions?.message}`) }}
+        </div>
+        <div v-else>
+          <button
+            @click="addQuestion"
+            class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer disabled:cursor-progress disabled:bg-indigo-400"
+            :disabled="isIgaLoading"
+          >
+            {{ $t('iga.questionnaire.add-new-question-button') }}
+          </button>
+          <div v-if="igaQuestions && igaQuestions.length > 0" class="space-y-4">
+            <div v-for="question in igaQuestions" :key="question.id"
+                 class="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-medium text-indigo-700">{{ question.readable_id }}</h3>
+                <div class="flex space-x-2">
+                  <button
+                    @click="moveQuestionUp(question.id)"
+                    v-if="question.sort_order > 0"
+                    class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading || editingQuestionId === question.id"
+                  >
+                    {{ $t('iga.questionnaire.move-up-button') }}
+                  </button>
+                  <button
+                    @click="moveQuestionDown(question.id)"
+                    v-if="question.sort_order < igaQuestions.length - 1"
+                    class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading || editingQuestionId === question.id"
+                  >
+                    {{ $t('iga.questionnaire.move-down-button') }}
+                  </button>
+                  <button
+                    @click="citeQuestion(question.readable_id)"
+                    class="text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading"
+                  >
+                    {{ $t('iga.questionnaire.cite-button') }}
+                  </button>
+                  <button
+                    v-if="editingQuestionId !== question.id"
+                    @click="startEditingQuestion(question)"
+                    class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading"
+                  >
+                    {{ $t('iga.questionnaire.edit-button') }}
+                  </button>
+                  <button
+                    v-if="editingQuestionId !== question.id"
+                    @click="showDeleteConfirmation(question.id)"
+                    class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading"
+                  >
+                    {{ $t('iga.questionnaire.delete-button') }}
+                  </button>
+                  <button
+                    v-else
+                    @click="saveQuestionEdit(question.id)"
+                    class="text-sm text-green-600 hover:text-green-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading"
+                  >
+                    {{ $t('iga.questionnaire.save-button') }}
+                  </button>
+                  <button
+                    v-if="editingQuestionId === question.id"
+                    @click="cancelQuestionEdit"
+                    class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
+                    :disabled="isIgaLoading"
+                  >
+                    {{ $t('iga.questionnaire.cancel-button') }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="editingQuestionId === question.id">
+                <label class="block text-sm font-medium text-neutral-700">{{
+                    $t('iga.questionnaire.question-text-label')
+                  }}</label>
+                <textarea
+                  v-model="editedQuestionText"
+                  class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
+                  rows="2"
                   :disabled="isIgaLoading"
-                >
-                  {{ $t('iga.questionnaire.cite-button') }}
-                </button>
-                <button
-                  v-if="editingQuestionId !== question.id"
-                  @click="startEditingQuestion(question)"
-                  class="text-sm text-neutral-600 hover:text-neutral-800 cursor-pointer disabled:cursor-progress"
+                ></textarea>
+                <label class="block text-sm font-medium text-neutral-700">{{
+                    $t('iga.questionnaire.note-text-label')
+                  }}</label>
+                <textarea
+                  v-model="editedNoteText"
+                  class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
+                  rows="2"
                   :disabled="isIgaLoading"
-                >
-                  {{ $t('iga.questionnaire.edit-button') }}
-                </button>
-                <button
-                  v-if="editingQuestionId !== question.id"
-                  @click="showDeleteConfirmation(question.id)"
-                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
-                  :disabled="isIgaLoading"
-                >
-                  {{ $t('iga.questionnaire.delete-button') }}
-                </button>
-                <button
-                  v-else
-                  @click="saveQuestionEdit(question.id)"
-                  class="text-sm text-green-600 hover:text-green-800 cursor-pointer disabled:cursor-progress"
-                  :disabled="isIgaLoading"
-                >
-                  {{ $t('iga.questionnaire.save-button') }}
-                </button>
-                <button
-                  v-if="editingQuestionId === question.id"
-                  @click="cancelQuestionEdit"
-                  class="text-sm text-red-600 hover:text-red-800 cursor-pointer disabled:cursor-progress"
-                  :disabled="isIgaLoading"
-                >
-                  {{ $t('iga.questionnaire.cancel-button') }}
-                </button>
+                ></textarea>
+              </div>
+              <div v-else>
+                <p class="text-neutral-800 mb-1">{{ question.question_text }}</p>
+                <p class="text-sm text-neutral-600 italic">Note: {{ question.note_text }}</p>
               </div>
             </div>
-
-            <div v-if="editingQuestionId === question.id">
-              <label class="block text-sm font-medium text-neutral-700">{{
-                  $t('iga.questionnaire.question-text-label')
-                }}</label>
-              <textarea
-                v-model="editedQuestionText"
-                class="w-full p-2 border rounded-md mb-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
-                rows="2"
-                :disabled="isIgaLoading"
-              ></textarea>
-              <label class="block text-sm font-medium text-neutral-700">{{
-                  $t('iga.questionnaire.note-text-label')
-                }}</label>
-              <textarea
-                v-model="editedNoteText"
-                class="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 disabled:cursor-progress disabled:bg-gray-100"
-                rows="2"
-                :disabled="isIgaLoading"
-              ></textarea>
-            </div>
-            <div v-else>
-              <p class="text-neutral-800 mb-1">{{ question.question_text }}</p>
-              <p class="text-sm text-neutral-600 italic">Note: {{ question.note_text }}</p>
-            </div>
           </div>
-        </div>
-        <div v-else-if="!igaStore.errorQuestions"
-             class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-          {{ $t('iga.questionnaire.no-questions-message') }}
+          <div v-else-if="!igaStore.isLoadingQuestions"
+               class="text-neutral-500 italic p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+            {{ $t('iga.questionnaire.no-questions-message') }}
+          </div>
         </div>
       </div>
     </div>

@@ -29,6 +29,7 @@
     "INTERNAL_ERROR": "A critical server error occurred. Please try again later.",
     "MALFORMED_REQUEST_ERROR": "The system received an incomplete request. Please refresh and try again.",
     "VALIDATION_ERROR": "One or more fields are invalid. Please check your inputs.",
+    "NOT_FOUND_ERROR": "An error occurred: resource not found.",
 
     "EMAIL_INVALID": "The email address provided is not valid.",
     "FIELD_MISSING": "A required field is missing.",

@@ -21,7 +21,7 @@ import {
   type UpdateIgaSessionPayload,
 } from '@/api/igaService.ts'
 import {useRoute} from "vue-router";
-import {computed} from "vue";
+import {computed, watch} from "vue";
 
 export const useIgaStore = defineStore('iga', () => {
   const cache = useQueryCache()
@@ -45,6 +45,13 @@ export const useIgaStore = defineStore('iga', () => {
     enabled: computed(() => !!route.params.id),
     refetchOnMount: true,
     staleTime: 0,
+  })
+
+  watch(activeIgaSessionQuery.data, (activeSession, oldSession) => {
+    if (activeSession === undefined || oldSession === undefined || activeSession.id !== oldSession.id) {
+      console.log(activeSession, oldSession)
+      clearAllMutationErrors()
+    }
   })
 
   const updateIgaSessionMutation = useMutation({
@@ -161,6 +168,15 @@ export const useIgaStore = defineStore('iga', () => {
     onSuccess: () => igaQuestionsQuery.refetch(),
   })
 
+  const clearAllMutationErrors = () => {
+    sendIgaChatMessageMutation.reset()
+    createIgaQuestionMutation.reset()
+    updateIgaQuestionMutation.reset()
+    deleteIgaQuestionMutation.reset()
+    reorderIgaQuestionsMutation.reset()
+    updateIgaSessionMutation.reset()
+  }
+
   return {
     // State
     activeSession: activeIgaSessionQuery.data,
@@ -224,5 +240,7 @@ export const useIgaStore = defineStore('iga', () => {
     errorCreatingQuestion: createIgaQuestionMutation.error,
     errorDeletingQuestion: deleteIgaQuestionMutation.error,
     errorReorderingQuestions: reorderIgaQuestionsMutation.error,
+
+    clearAllMutationErrors
   }
 })
