@@ -143,8 +143,7 @@ To get CogniReq up and running quickly, it's recommended to use Docker and Docke
 
 ## Roadmap and Future Vision
 
-CogniReq is envisioned as a comprehensive AI-native Requirements Management platform. While the Interview Guide Assist (
-IGA) is its initial core offering, our roadmap includes expanding its capabilities to cover the full requirements
+CogniReq is envisioned as a comprehensive AI-native Requirements Management platform. While the Interview Guide Assist (IGA) is its initial core offering, our roadmap includes expanding its capabilities to cover the full requirements
 lifecycle. Future features may include:
 
 * **Convenient Requirements Generation:** Conveniently generate high-quality requirements directly and seamlessly from
