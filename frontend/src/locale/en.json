@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "CogniReq",
-    "title": "CogniReq - The AI-Native Requirements Clarity Platform - FOSS"
+    "title": "CogniReq: The First FOSS AI-Native Requirements Management Platform"
   },
   "nav": {
     "iga-list": "Interview Guide Assist",
@@ -13,10 +13,10 @@
   },
   "login": {
     "title": "@:app.name - @:login.sign-in-header",
-    "subtitle": "The future of requirements management. We utilize a multi-phased LLM approach to enhance requirements elicitation, ensuring clarity and precision from the start.",
-    "feature-1": "<b>Intelligent Elicitation</b>: LLM-powered suggestion engine.",
-    "feature-2": "<b>Modern Workflow</b>: Designed for agile and scalable development.",
-    "feature-3": "<b>Future-Proof</b>: Built on a foundation for comprehensive RE.",
+    "subtitle": "Empowering Requirements Engineers with Intelligent Interview Guidance and Structured Artifact Generation.",
+    "feature-1": "<b>Structured Interview Preparation</b>: Systematic approach to stakeholder interviews.",
+    "feature-2": "<b>AI-driven Conversational Refinement</b>: Iterative guidance from an expert co-pilot.",
+    "feature-3": "<b>Guaranteed Artifact Integrity</b>: JSON Schema Enforcement for reliable output.",
     "sign-in-header": "Sign In to Your Workspace",
     "placeholder-email": "Email Address",
     "placeholder-password": "Password",
