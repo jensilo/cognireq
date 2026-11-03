@@ -1,5 +1,7 @@
 # CogniReq: The First FOSS AI-Native Requirements Management Platform
 
+> **Notice:** This is a learning project, for educational purposes only. It is not for actual use.
+
 **Empowering Requirements Engineers with Intelligent Interview Guidance and Structured Artifact Generation.**
 
 ![CogniReq Landing Page and Login Screen](docs/images/login-screen.png)
